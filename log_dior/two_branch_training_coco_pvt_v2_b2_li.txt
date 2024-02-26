@@ -1,0 +1,20 @@
+Command Line Args: Namespace(config_file='configs/fsod/two_branch_training_dior_pvt_v2_b2_li.yaml', resume=False, eval_only=False, num_gpus=8, num_machines=1, machine_rank=0, dist_url='auto', opts=['SOLVER.IMS_PER_BATCH', '8'])
+Traceback (most recent call last):
+  File "/home/bibahaduri/FCT/fsod_train_net.py", line 206, in <module>
+    launch(
+  File "/home/bibahaduri/venv/lib/python3.9/site-packages/detectron2/engine/launch.py", line 69, in launch
+    mp.start_processes(
+  File "/home/bibahaduri/venv/lib/python3.9/site-packages/torch/multiprocessing/spawn.py", line 202, in start_processes
+    while not context.join():
+  File "/home/bibahaduri/venv/lib/python3.9/site-packages/torch/multiprocessing/spawn.py", line 163, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 1 terminated with the following error:
+Traceback (most recent call last):
+  File "/home/bibahaduri/venv/lib/python3.9/site-packages/torch/multiprocessing/spawn.py", line 74, in _wrap
+    fn(i, *args)
+  File "/home/bibahaduri/venv/lib/python3.9/site-packages/detectron2/engine/launch.py", line 99, in _distributed_worker
+    assert num_gpus_per_machine <= torch.cuda.device_count()
+AssertionError
+
