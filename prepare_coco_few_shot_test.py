@@ -22,7 +22,7 @@ def parse_args():
 
 
 def generate_seeds(args):
-    data_path = "/home/bibahaduri/DIOR/coco/annotations/instances_test2017.json"##"datasets/cocosplit/datasplit/trainvalno5k.json"
+    data_path = "/home/bibahaduri/pascalvoc/coco/annotations/instances_test.json"##"datasets/cocosplit/datasplit/trainvalno5k.json"
     data = json.load(open(data_path))
 
     new_all_cats = []
@@ -114,32 +114,57 @@ if __name__ == "__main__":
     #     15:  "soccer-ball-field",
     #     16: "container-crane",
     # }
-    
+
+
+ #=========================Pascal VOC CLASSES====================#
+
+    ID2CLASS = {
+    1: 'aeroplane',
+    2: 'bicycle',
+    3: 'bird',
+    4: 'boat',
+    5: 'bottle',
+    6: 'bus',
+    7: 'car',
+    8: 'cat',
+    9: 'chair',
+    10: 'cow',
+    11: 'diningtable',
+    12: 'dog',
+    13: 'horse',
+    14: 'motorbike',
+    15: 'person',
+    16: 'pottedplant',
+    17: 'sheep',
+    18: 'sofa',
+    19: 'train',
+    20: 'tvmonitor'
+    }
 
 #=========================DIOR CLASSES====================#
     
-    ID2CLASS = {
-        1: "Airplane ",
-        2: "Airport ",
-        3: "Baseball field ",
-        4: "Basketball court ",
-        5: "Bridge ",
-        6: "Chimney ",
-        7: "Dam ",
-        8: "Expressway service area ",
-        9: "Expressway toll station ",
-        10: "Golf course",
-        11: "Ground track field ",
-        12: "Harbor ",
-        13: "Overpass ",
-        14: "Ship ",
-        15: "Stadium ",
-        16: "Storage tank ",
-        17: "Tennis court ",
-        18: "Train station ",
-        19: "Vehicle ",
-        20: "Wind mill",
-    }
+    # ID2CLASS = {
+    #     1: "Airplane ",
+    #     2: "Airport ",
+    #     3: "Baseball field ",
+    #     4: "Basketball court ",
+    #     5: "Bridge ",
+    #     6: "Chimney ",
+    #     7: "Dam ",
+    #     8: "Expressway service area ",
+    #     9: "Expressway toll station ",
+    #     10: "Golf course",
+    #     11: "Ground track field ",
+    #     12: "Harbor ",
+    #     13: "Overpass ",
+    #     14: "Ship ",
+    #     15: "Stadium ",
+    #     16: "Storage tank ",
+    #     17: "Tennis court ",
+    #     18: "Train station ",
+    #     19: "Vehicle ",
+    #     20: "Wind mill",
+    # }
     
    
 

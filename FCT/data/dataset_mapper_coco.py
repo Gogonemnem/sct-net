@@ -98,8 +98,8 @@ class DatasetMapperWithSupportCOCO:
                         self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
                         print("training support_df=", os.path.join(self.data_dir, "coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
             else:
-                self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/test_support_df.pkl"))
-                print("training support_df= ", os.path.join(self.data_dir, "coco/test_support_df.pkl"))
+                self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/train_support_df.pkl"))
+                print("training support_df= ", os.path.join(self.data_dir, "coco/train_support_df.pkl"))
             if 'coco' in cfg.DATASETS.TRAIN[0]:
                 metadata = MetadataCatalog.get('coco_2014_train')
             else:
