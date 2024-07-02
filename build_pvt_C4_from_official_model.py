@@ -5,9 +5,13 @@ Created on Wednesday, September 28, 2022
 @author: Guangxing Han
 """
 
+import os
+
 import torch
 
+
 device = torch.device('cuda')
+
 model = torch.load("/home/bibahaduri/weights/pvt_v2_b2_li.pth", map_location=device)
 # model = torch.load("./pvt_v2_b1.pth")
 # model = torch.load("./pvt_v2_b0.pth")

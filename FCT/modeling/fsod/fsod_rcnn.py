@@ -5,6 +5,7 @@ Modified on Wednesday, September 28, 2022
 @author: Guangxing Han
 """
 import logging
+from collections import defaultdict
 import numpy as np
 import torch
 from torch import nn
@@ -17,13 +18,12 @@ from detectron2.utils.logger import log_first_n
 from detectron2.modeling.backbone import build_backbone
 from detectron2.modeling.postprocessing import detector_postprocess
 from detectron2.modeling.proposal_generator import build_proposal_generator
-from .fsod_roi_heads import build_roi_heads
+from detectron2.modeling.roi_heads import build_roi_heads
 from detectron2.modeling.meta_arch.build import META_ARCH_REGISTRY
 
-from detectron2.modeling.poolers import ROIPooler
 import torch.nn.functional as F
 
-from .fsod_fast_rcnn import FsodFastRCNNOutputs
+from .fsod_fast_rcnn import FsodFastRCNNOutputLayers
 
 import os
 
@@ -170,155 +170,57 @@ class FsodRCNN(nn.Module):
         B, N, C, H, W = support_images.tensor.shape
         assert N == self.support_way * self.support_shot
 
-        support_images = support_images.tensor.reshape(B*N, C, H, W)
-        features_dict = {}
-        for b_1 in range(images.tensor.shape[0]):
-            features_dict[b_1] = {}
-            pos_end = b_1 * self.support_shot * self.support_way
-            for b_2 in range(self.support_way):
-                pos_begin = pos_end
-                begin_rel = pos_begin - b_1 * self.support_shot * self.support_way
-                if begin_rel >= len(batched_inputs[b_1]['support_cls']):
-                    break
-                for idx in range(begin_rel+1, len(batched_inputs[b_1]['support_cls'])):
-                    if batched_inputs[b_1]['support_cls'][idx] != batched_inputs[b_1]['support_cls'][begin_rel]:
-                        break
-                if batched_inputs[b_1]['support_cls'][idx] != batched_inputs[b_1]['support_cls'][begin_rel]:
-                    pos_end = b_1 * self.support_shot * self.support_way + idx
-                else:
-                    pos_end = b_1 * self.support_shot * self.support_way + idx + 1
+        # Split support images based on support way and shot
+        support_images = support_images.tensor.view(B, self.support_way, self.support_shot, C, H, W)
+
+        losses = defaultdict(float)
+
+        # TODO: support better handling of batch-wise training
+        for i in range(B):
+            # Query
+            query_gt_instances = [gt_instances[i]]  # One query gt instances
+            query_images = ImageList.from_tensors([images[i]])  # One query image
+
+            query_features_dict = {}
+            support_features_dict = {}
+            support_boxes_dict = {}
+
+            for way in range(self.support_way):
+                support_image_set = support_images[i, way, :, :, :, :]
+                query_features, support_features = self.backbone(images.tensor[i].unsqueeze(0), support_image_set)
+                query_features_dict[way] = {key: query_features[key] for key in query_features.keys()}
+                support_features_dict[way] = {key: support_features[key] for key in support_features.keys()}
+
+                support_boxes = batched_inputs[i]['support_bboxes'][way * self.support_shot:(way + 1) * self.support_shot]
+                support_boxes = [Boxes(box[np.newaxis, :]).to(self.device) for box in support_boxes]
                 
-                features_dict[b_1][b_2] = self.backbone.forward_with_two_branch(images.tensor[b_1,:].unsqueeze(0), support_images[pos_begin:pos_end,:])
+                support_boxes_dict[way] = support_boxes
 
-        detector_loss_cls = []
-        detector_loss_box_reg = []
-        rpn_loss_rpn_cls = []
-        rpn_loss_rpn_loc = []
-        for i in range(B): # batch
-            # query
-            query_gt_instances = [gt_instances[i]] # one query gt instances
-            query_images = ImageList.from_tensors([images[i]]) # one query image
+            proposals_dict, proposal_losses = self.proposal_generator(
+                query_images,
+                query_features_dict,
+                support_features_dict,
+                support_boxes_dict,
+                query_gt_instances
+                )
 
-            query_feature_res4 = features_dict[i][0]['res4'][0] # one query feature for attention rpn
-            query_features = {'res4': query_feature_res4} # one query feature for rcnn
+            _, detector_losses = self.roi_heads(
+                query_images,
+                query_features_dict,
+                support_features_dict,
+                support_boxes_dict,
+                proposals_dict,
+                query_gt_instances
+                )
 
-            # positive support branch ##################################
-            pos_begin = i * self.support_shot * self.support_way
-            begin_rel = 0
-            for idx in range(begin_rel+1, len(batched_inputs[i]['support_cls'])):
-                if batched_inputs[i]['support_cls'][idx] != batched_inputs[i]['support_cls'][begin_rel]:
-                    break
-            pos_end = pos_begin + idx
+            for loss_type, value in detector_losses.items():
+                losses[loss_type] += value
 
-            support_features_res4 = features_dict[i][0]['res4'][1]
-            support_features = {'res4': support_features_res4}
-            pos_support_features = self.roi_heads.roi_pooling(support_features, support_bboxes_ls[pos_begin:pos_end])
-            pos_support_features_pool = pos_support_features.mean(0, True).mean(dim=[2, 3], keepdim=True)
-
-            pos_correlation = F.conv2d(query_feature_res4, pos_support_features_pool.permute(1,0,2,3), groups=query_feature_res4.shape[1]) # attention map
-
-            pos_features = {'res4': pos_correlation} # attention map for attention rpn
-            pos_proposals, pos_anchors, pos_pred_objectness_logits, pos_gt_labels, pos_pred_anchor_deltas, pos_gt_boxes = self.proposal_generator(query_images, pos_features, query_gt_instances) # attention rpn
-            pos_pred_class_logits, pos_pred_proposal_deltas, pos_detector_proposals = self.roi_heads(query_images, query_features, pos_support_features, pos_proposals, query_gt_instances) # pos rcnn
-
-            # negative support branch ##################################
-            neg_end = pos_end
-            for way in range(self.support_way-1):
-                if neg_end >= pos_begin + len(batched_inputs[i]['support_cls']):
-                    break
-                neg_begin = neg_end
-                begin_rel = neg_begin - pos_begin
-                for idx in range(begin_rel+1, len(batched_inputs[i]['support_cls'])):
-                    if batched_inputs[i]['support_cls'][idx] != batched_inputs[i]['support_cls'][begin_rel]:
-                        break
-                if batched_inputs[i]['support_cls'][idx] != batched_inputs[i]['support_cls'][begin_rel]:
-                    neg_end = pos_begin + idx
-                else:
-                    neg_end = pos_begin + idx + 1
-
-                query_feature_res4 = features_dict[i][way+1]['res4'][0] # one query feature for attention rpn
-                query_features = {'res4': query_feature_res4} # one query feature for rcnn
-
-                support_features_res4 = features_dict[i][way+1]['res4'][1]
-                support_features = {'res4': support_features_res4}
-                neg_support_features = self.roi_heads.roi_pooling(support_features, support_bboxes_ls[neg_begin:neg_end])
-                neg_support_features_pool = neg_support_features.mean(0, True).mean(dim=[2, 3], keepdim=True)
-
-                neg_correlation = F.conv2d(query_feature_res4, neg_support_features_pool.permute(1,0,2,3), groups=query_feature_res4.shape[1])
-
-                neg_features = {'res4': neg_correlation}
-
-                neg_proposals, neg_anchors, neg_pred_objectness_logits_tmp, neg_gt_labels_tmp, neg_pred_anchor_deltas_tmp, neg_gt_boxes_tmp = self.proposal_generator(query_images, neg_features, query_gt_instances)
-                neg_pred_class_logits_tmp, neg_pred_proposal_deltas_tmp, neg_detector_proposals_tmp = self.roi_heads(query_images, query_features, neg_support_features, neg_proposals, query_gt_instances)
-
-                if way == 0:
-                    neg_pred_objectness_logits = neg_pred_objectness_logits_tmp
-                    neg_gt_labels = neg_gt_labels_tmp
-                    neg_pred_anchor_deltas = neg_pred_anchor_deltas_tmp
-                    neg_gt_boxes = neg_gt_boxes_tmp
-                    neg_pred_class_logits = neg_pred_class_logits_tmp
-                    neg_pred_proposal_deltas = neg_pred_proposal_deltas_tmp
-                    neg_detector_proposals = neg_detector_proposals_tmp
-                else:
-                    neg_pred_objectness_logits += neg_pred_objectness_logits_tmp
-                    neg_gt_labels += neg_gt_labels_tmp
-                    neg_pred_anchor_deltas += neg_pred_anchor_deltas_tmp
-                    neg_gt_boxes += neg_gt_boxes_tmp
-                    neg_pred_class_logits = torch.cat([neg_pred_class_logits, neg_pred_class_logits_tmp], dim=0)
-                    neg_pred_proposal_deltas = torch.cat([neg_pred_proposal_deltas, neg_pred_proposal_deltas_tmp], dim=0)
-                    neg_detector_proposals += neg_detector_proposals_tmp
-
-            # rpn loss
-            outputs_images = ImageList.from_tensors([images[i], images[i]])
-
-            outputs_pred_objectness_logits = [torch.cat(pos_pred_objectness_logits + neg_pred_objectness_logits, dim=0)]
-            outputs_pred_anchor_deltas = [torch.cat(pos_pred_anchor_deltas + neg_pred_anchor_deltas, dim=0)]
+            for loss_type, value in proposal_losses.items():
+                losses[loss_type] += value
             
-            outputs_anchors = pos_anchors # + neg_anchors
 
-            # convert 1 in neg_gt_labels to 0
-            for item in neg_gt_labels:
-                item[item == 1] = 0
-
-            outputs_gt_boxes = pos_gt_boxes + neg_gt_boxes #[None]
-            outputs_gt_labels = pos_gt_labels + neg_gt_labels
-
-            if self.training:
-                proposal_losses = self.proposal_generator.losses(
-                    outputs_anchors, outputs_pred_objectness_logits, outputs_gt_labels, outputs_pred_anchor_deltas, outputs_gt_boxes)
-                proposal_losses = {k: v * self.proposal_generator.loss_weight for k, v in proposal_losses.items()}
-            else:
-                proposal_losses = {}
-
-            # detector loss
-            detector_pred_class_logits = torch.cat([pos_pred_class_logits, neg_pred_class_logits], dim=0)
-            detector_pred_proposal_deltas = torch.cat([pos_pred_proposal_deltas, neg_pred_proposal_deltas], dim=0)
-            for item in neg_detector_proposals:
-                item.gt_classes = torch.full_like(item.gt_classes, 1)
-            
-            #detector_proposals = pos_detector_proposals + neg_detector_proposals
-            detector_proposals = [Instances.cat(pos_detector_proposals + neg_detector_proposals)]
-            if self.training:
-                predictions = detector_pred_class_logits, detector_pred_proposal_deltas
-                detector_losses = self.roi_heads.box_predictor.losses(predictions, detector_proposals)
-
-            rpn_loss_rpn_cls.append(proposal_losses['loss_rpn_cls'])
-            rpn_loss_rpn_loc.append(proposal_losses['loss_rpn_loc'])
-            detector_loss_cls.append(detector_losses['loss_cls'])
-            detector_loss_box_reg.append(detector_losses['loss_box_reg'])
-        
-        proposal_losses = {}
-        detector_losses = {}
-
-        proposal_losses['loss_rpn_cls'] = torch.stack(rpn_loss_rpn_cls).mean()
-        proposal_losses['loss_rpn_loc'] = torch.stack(rpn_loss_rpn_loc).mean()
-        detector_losses['loss_cls'] = torch.stack(detector_loss_cls).mean() 
-        detector_losses['loss_box_reg'] = torch.stack(detector_loss_box_reg).mean()
-
-
-        losses = {}
-        losses.update(detector_losses)
-        losses.update(proposal_losses)
+        losses = {loss_type: value / B for loss_type, value in losses.items()}
         return losses
 
     def init_model_voc(self):
@@ -363,14 +265,14 @@ class FsodRCNN(nn.Module):
         if 1:
             if self.keepclasses == 'all':
                 if self.test_seeds == 0:
-                    support_path = os.path.join(self.data_dir, 'coco/full_class_{}_test_shot_support_df.pkl'.format(self.evaluation_shot))##(self.data_dir, 'coco/full_class_{}_shot_support_df.pkl'.format(self.evaluation_shot))
+                    support_path = os.path.join(self.data_dir, 'full_class_{}_shot_support_df.pkl'.format(self.evaluation_shot))##(self.data_dir, 'coco/full_class_{}_shot_support_df.pkl'.format(self.evaluation_shot))
                 elif self.test_seeds > 0:
-                    support_path = os.path.join(self.data_dir, 'coco/seed{}/full_class_{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot))
+                    support_path = os.path.join(self.data_dir, 'seed{}/full_class_{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot))
             else:
                 if self.test_seeds == 0:
-                    support_path = os.path.join(self.data_dir, 'coco/{}_shot_support_df.pkl'.format(self.evaluation_shot))
+                    support_path = os.path.join(self.data_dir, '{}_shot_support_df.pkl'.format(self.evaluation_shot))
                 elif self.test_seeds > 0:
-                    support_path = os.path.join(self.data_dir, 'coco/seed{}/{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot))
+                    support_path = os.path.join(self.data_dir, 'seed{}/{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot))
 
             support_df = pd.read_pickle(support_path)
             if 'coco' in self.dataset:
@@ -429,47 +331,40 @@ class FsodRCNN(nn.Module):
         
         images = self.preprocess_image(batched_inputs)
 
-        B, _, _, _ = images.tensor.shape
+        B, C, H, W = images.tensor.shape
         assert B == 1 # only support 1 query image in test
         assert len(images) == 1
-        support_proposals_dict = {}
-        support_box_features_dict = {}
-        proposal_num_dict = {}
+
+        # TODO: make possible for arbitrary batch
+        # for i in range(B):
+        i = 0
+        query_images = ImageList.from_tensors([images[i]]) # one query image
+
         query_features_dict = {}
+        support_features_dict = {}
+        support_boxes_dict = {}
 
         for cls_id, support_images in self.support_dict['image'].items():
-            query_images = ImageList.from_tensors([images[0]]) # one query image
+            query_features, support_features = self.backbone(query_images.tensor, support_images.tensor)
+            query_features_dict[cls_id] = {key: query_features[key] for key in query_features.keys()}
+            support_features_dict[cls_id] = {key: support_features[key] for key in support_features.keys()}
+            support_boxes_dict[cls_id] = self.support_dict['box'][cls_id]
 
-            features_dict = self.backbone.forward_with_two_branch(query_images.tensor, support_images.tensor)
+        proposals_dict, _ = self.proposal_generator(
+            query_images,
+            query_features_dict,
+            support_features_dict,
+            support_boxes_dict,
+            None
+        )
 
-            query_features_res4 = features_dict['res4'][0] # one query feature for attention rpn
-            query_features = {'res4': query_features_res4} # one query feature for rcnn
-
-            # support branch ##################################
-            support_features_res4 = features_dict['res4'][1]
-            support_features = {'res4': support_features_res4}
-            pos_support_features = self.roi_heads.roi_pooling(support_features, self.support_dict['box'][cls_id])
-            pos_support_features_pool = pos_support_features.mean(0, True).mean(dim=[2, 3], keepdim=True)
-
-            correlation = F.conv2d(query_features_res4, pos_support_features_pool.permute(1,0,2,3), groups=query_features_res4.shape[1]) # attention map
-
-            support_correlation = {'res4': correlation} # attention map for attention rpn
-
-            proposals, _ = self.proposal_generator(query_images, support_correlation, None)
-            support_proposals_dict[cls_id] = proposals
-            support_box_features_dict[cls_id] = pos_support_features
-            query_features_dict[cls_id] = query_features
-
-            if cls_id not in proposal_num_dict.keys():
-                proposal_num_dict[cls_id] = []
-            proposal_num_dict[cls_id].append(len(proposals[0]))
-
-            # del support_box_features
-            del correlation
-            # del res4_avg
-            del query_features_res4
-
-        results, _ = self.roi_heads.eval_with_support(query_images, query_features_dict, support_proposals_dict, support_box_features_dict)
+        results, _ = self.roi_heads(
+            query_images,
+            query_features_dict,
+            support_features_dict,
+            support_boxes_dict,
+            proposals_dict
+        )
         
         if do_postprocess:
             return FsodRCNN._postprocess(results, batched_inputs, images.image_sizes)
@@ -483,15 +378,14 @@ class FsodRCNN(nn.Module):
         images = [x["image"].to(self.device) for x in batched_inputs]
         images = [(x - self.pixel_mean) / self.pixel_std for x in images]
         images = ImageList.from_tensors(images, self.backbone.size_divisibility)
-        if self.training:
-            # support images
-            support_images = [x['support_images'].to(self.device) for x in batched_inputs]
-            support_images = [(x - self.pixel_mean) / self.pixel_std for x in support_images]
-            support_images = ImageList.from_tensors(support_images, self.backbone.size_divisibility)
-
-            return images, support_images
-        else:
+        if not self.training:
             return images
+
+        support_images = [x['support_images'].to(self.device) for x in batched_inputs]
+        support_images = [(x - self.pixel_mean) / self.pixel_std for x in support_images]
+        support_images = ImageList.from_tensors(support_images, self.backbone.size_divisibility)
+
+        return images, support_images
 
     @staticmethod
     def _postprocess(instances, batched_inputs, image_sizes):

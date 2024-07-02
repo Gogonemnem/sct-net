@@ -1,0 +1,15 @@
+MODEL:
+  WEIGHTS: "./weights/pvt_v2_b2_li_fpn.pth"
+  PVT:
+    OUT_FEATURES: ["pvt3", "pvt4"]
+  FPN:
+    IN_FEATURES: ["pvt3", "pvt4"]
+  RPN:
+    IN_FEATURES: ["p3", "p4", "p5", "p6"]
+  ROI_HEADS:
+    IN_FEATURES: ["p3", "p4", "p5", "p6"]
+  BACKBONE:
+    NAME: build_retinanet_pvtv2_fpn_backbone
+  ROI_BOX_HEAD:
+    NAME: "PVT4BoxHead"
+VERSION: 2

@@ -209,7 +209,7 @@ _C.MODEL.RPN.HEAD_NAME = "StandardRPNHead"  # used by RPN_HEAD_REGISTRY
 
 # Names of the input feature maps to be used by RPN
 # e.g., ["p2", "p3", "p4", "p5", "p6"] for FPN
-_C.MODEL.RPN.IN_FEATURES = ["res4"]
+_C.MODEL.RPN.IN_FEATURES = ["pvt4"]
 # Remove RPN anchors that go outside the image by BOUNDARY_THRESH pixels
 # Set to -1 or a large value, e.g. 100000, to disable pruning anchors
 _C.MODEL.RPN.BOUNDARY_THRESH = -1
@@ -263,7 +263,7 @@ _C.MODEL.ROI_HEADS.NUM_CLASSES = 80
 # Names of the input feature maps to be used by ROI heads
 # Currently all heads (box, mask, ...) use the same input feature map list
 # e.g., ["p2", "p3", "p4", "p5"] is commonly used for FPN
-_C.MODEL.ROI_HEADS.IN_FEATURES = ["res4"]
+_C.MODEL.ROI_HEADS.IN_FEATURES = ["pvt4"]
 # IOU overlap ratios [IOU_THRESHOLD]
 # Overlap threshold for an RoI to be considered background (if < IOU_THRESHOLD)
 # Overlap threshold for an RoI to be considered foreground (if >= IOU_THRESHOLD)
@@ -524,6 +524,40 @@ _C.MODEL.RESNETS.DEFORM_NUM_GROUPS = 1
 
 
 # ---------------------------------------------------------------------------- #
+# PVT options
+# Note that parts of a resnet may be used for both the backbone and the head
+# These options apply to both
+# ---------------------------------------------------------------------------- #
+_C.MODEL.PVT = CN()
+
+_C.MODEL.PVT.GLOBAL_POOL = 'avg'
+_C.MODEL.PVT.DEPTHS = [3, 4, 6, 3]
+_C.MODEL.PVT.EMBED_DIMS = [64, 128, 320, 512]
+_C.MODEL.PVT.NUM_HEADS = [1, 2, 5, 8]
+_C.MODEL.PVT.SR_RATIOS = [8, 4, 2, 1]
+_C.MODEL.PVT.MLP_RATIOS = [8, 8, 4, 4]
+_C.MODEL.PVT.QKV_BIAS = True
+_C.MODEL.PVT.LINEAR = True
+_C.MODEL.PVT.DROP_RATE = 0.0
+_C.MODEL.PVT.PROJ_DROP_RATE = 0.0
+_C.MODEL.PVT.ATTN_DROP_RATE = 0.0
+_C.MODEL.PVT.DROP_PATH_RATE = 0.1
+_C.MODEL.PVT.NORM_LAYER = "LN"
+# _C.MODEL.PVT.OUT_FEATURES = ["pvt2", "pvt3", "pvt4"]
+# _C.MODEL.PVT.OUT_FEATURES = ["pvt3", "pvt4"]
+_C.MODEL.PVT.OUT_FEATURES = ["pvt4"]
+
+
+# ---------------------------------------------------------------------------- #
+# Multi-Relation Box Head Detector Options
+# ---------------------------------------------------------------------------- #
+_C.MODEL.MULTI_RELATION = CN()
+
+_C.MODEL.MULTI_RELATION.GLOBAL_RELATION = True
+_C.MODEL.MULTI_RELATION.LOCAL_CORRELATION = True
+_C.MODEL.MULTI_RELATION.PATCH_RELATION = True
+
+# ---------------------------------------------------------------------------- #
 # Solver
 # ---------------------------------------------------------------------------- #
 _C.SOLVER = CN()
@@ -632,7 +666,7 @@ _C.TEST.PRECISE_BN.NUM_ITER = 200
 # Misc options
 # ---------------------------------------------------------------------------- #
 # Directory where output files are written
-_C.OUTPUT_DIR = "./output"
+_C.OUTPUT_DIR = ""
 # Set seed to negative to fully randomize everything.
 # Set seed to positive to use a fixed seed. Note that a fixed seed increases
 # reproducibility but does not guarantee fully deterministic behavior.
@@ -668,9 +702,12 @@ _C.SOLVER.SOLVER_TYPE = "adamw"
 # Few shot setting
 # ---------------------------------------------------------------------------- #
 _C.INPUT.FS = CN()
+# Whether to enable two-branch 'few-shot' setting
+_C.INPUT.FS.ENABLED = False
+# Whether to enable the actual few-shot examples setting
 _C.INPUT.FS.FEW_SHOT = False
 _C.INPUT.FS.SUPPORT_WAY = 2
-_C.INPUT.FS.SUPPORT_SHOT = 10
+_C.INPUT.FS.SUPPORT_SHOT = 0
 _C.INPUT.FS.SUPPORT_EXCLUDE_QUERY = False
 
 # _C.DATASETS.TRAIN_KEEPCLASSES = 'all'
@@ -680,6 +717,7 @@ _C.DATASETS.SEEDS = 0
 
 _C.MODEL.BACKBONE.TYPE = "pvt_v2_b2_li"
 _C.MODEL.BACKBONE.ONLY_TRAIN_NORM = False
+_C.MODEL.BACKBONE.BRANCH_EMBED = True
 _C.MODEL.BACKBONE.TRAIN_BRANCH_EMBED = True
 _C.MODEL.RPN.FREEZE_RPN = False
 _C.MODEL.ROI_HEADS.FREEZE_ROI_FEATURE_EXTRACTOR = False

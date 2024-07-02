@@ -85,21 +85,21 @@ class DatasetMapperWithSupportCOCO:
             if self.few_shot:
                 if 'full' in cfg.DATASETS.TRAIN[0]:
                     if self.seeds == 0:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "coco/full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
+                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
+                        print("training support_df=", os.path.join(self.data_dir, "full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
                     else:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "coco/seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
+                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
+                        print("training support_df=", os.path.join(self.data_dir, "seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
                 else:
                     if self.seeds == 0:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "coco/{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
+                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
+                        print("training support_df=", os.path.join(self.data_dir, "{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
                     else:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "coco/seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
+                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
+                        print("training support_df=", os.path.join(self.data_dir, "seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
             else:
-                self.support_df = pd.read_pickle(os.path.join(self.data_dir, "coco/train_support_df.pkl"))
-                print("training support_df= ", os.path.join(self.data_dir, "coco/train_support_df.pkl"))
+                self.support_df = pd.read_pickle(os.path.join(self.data_dir, "train_support_df.pkl"))
+                print("training support_df= ", os.path.join(self.data_dir, "train_support_df.pkl"))
             if 'coco' in cfg.DATASETS.TRAIN[0]:
                 metadata = MetadataCatalog.get('coco_2014_train')
             else:
