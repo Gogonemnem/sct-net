@@ -7,8 +7,6 @@ from .fsod_rcnn import FsodRCNN
 from .fsod_roi_heads import FsodStandardROIHeads
 from .fsod_fast_rcnn import FsodFastRCNNOutputLayers
 from .fsod_rpn import FsodRPN
-# from .pvt_v2 import build_PVT_backbone
-# from .FCT import build_FCT_backbone
 from .pvt_v2 import PyramidVisionTransformerV2
 from .fsod_pvt_v2 import FsodPyramidVisionTransformerV2
 from .fsod_box_head import FsodPVT4BoxHead
