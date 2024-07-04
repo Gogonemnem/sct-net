@@ -56,7 +56,10 @@ class FsodFastRCNNOutputLayers(FastRCNNOutputLayers):
         Returns:
             scalar Tensor
         """
-        # num_instances = self.gt_classes.numel()
+        # TODO: use configs to figure it out
+        n_instances_per_class = 128 # self.gt_classes.numel()?
+        background_ratio = 2
+        negative_ratio = 1
 
         cls_score_softmax = F.softmax(scores, dim=1)
 
@@ -66,16 +69,27 @@ class FsodFastRCNNOutputLayers(FastRCNNOutputLayers):
         
         bg_cls_score_softmax = cls_score_softmax[bg_inds, :]
 
-        # bg_num_0 = max(1, min(fg_inds.shape[0] * 2, int(num_instances * 0.25))) #int(num_instances * 0.5 - fg_inds.shape[0])))
-        bg_num_0 = max(1, min(fg_inds.shape[0] * 2, int(128 * 0.5))) #int(num_instances * 0.5 - fg_inds.shape[0])))
-        bg_num_1 = max(1, min(fg_inds.shape[0] * 1, bg_num_0))
+        n_positives_foreground = fg_inds.shape[0]
+        n_positives_background = n_positives_foreground * background_ratio
+        n_negatives = n_positives_foreground * negative_ratio
 
+        if  n_positives_background + n_positives_foreground > n_instances_per_class:
+            n_positives_background = n_instances_per_class - n_positives_foreground
+
+            # anchor the ratio to positive background, same logic as in the original implementation
+            # maybe not necessary as the ratio should be anchored to positive foreground?
+            # n_negatives = n_positives_background
+        
+        # TODO: unnecessary prior calculations if n_positives_foreground == 0
+        if n_positives_foreground == 0:
+            n_positives_background = 1
+            n_negatives = 1
+
+        # TODO: check original implementation if this is correct (premature sorting?)
         sorted, sorted_bg_inds = torch.sort(bg_cls_score_softmax[:, 0], descending=True)
-        real_bg_inds = bg_inds[sorted_bg_inds]
-        real_bg_topk_inds_0 = real_bg_inds[real_bg_inds < 128][:bg_num_0]
-        real_bg_topk_inds_1 = real_bg_inds[real_bg_inds >= 128][:bg_num_1]
-        # real_bg_topk_inds_0 = real_bg_inds[real_bg_inds < int(num_instances * 0.5)][:bg_num_0]
-        # real_bg_topk_inds_1 = real_bg_inds[real_bg_inds >= int(num_instances * 0.5)][:bg_num_1]
+        real_bg_inds        = bg_inds[sorted_bg_inds]
+        real_bg_topk_inds_0 = real_bg_inds[real_bg_inds <  n_instances_per_class][:n_positives_background]
+        real_bg_topk_inds_1 = real_bg_inds[real_bg_inds >= n_instances_per_class][:n_negatives]
 
         topk_inds = torch.cat([fg_inds, real_bg_topk_inds_0, real_bg_topk_inds_1], dim=0)
 
