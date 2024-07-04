@@ -14,6 +14,10 @@ import pandas as pd
 
 from pycocotools.coco import COCO
 
+DATASET = 'dota'
+SHOTS = [10] # 0, 
+ROOT_PATH = os.path.join(os.getcwd(), 'datasets', 'data', DATASET)
+
 def vis_image(im, bboxs, im_name):
     dpi = 300
     fig, ax = plt.subplots() 
@@ -221,9 +225,7 @@ def main(shot: int=0, full_class: bool=False):
     else:
         directory_name = f'{shot}_shot_support'
 
-    root_path = os.path.join(os.getcwd(), 'datasets', 'data', 'dota')
-
-    support_path = os.path.join(root_path, directory_name)
+    support_path = os.path.join(ROOT_PATH, directory_name)
     if not os.path.isdir(support_path):
         os.mkdir(support_path)
 
@@ -237,7 +239,7 @@ def main(shot: int=0, full_class: bool=False):
 
     for dataType in ['train2017']:
         crop_directory = os.path.join(support_path, dataType)
-        img_directory = os.path.join(root_path, dataType)
+        img_directory = os.path.join(ROOT_PATH, dataType)
 
         if not shot:
             annotation_name = f'base_split_instances_{dataType}_with_small.json'
@@ -246,7 +248,7 @@ def main(shot: int=0, full_class: bool=False):
         else:
             annotation_name = f'novel_split_{shot}_shot_instances_{dataType}.json'
         
-        annFile = os.path.join(root_path, 'new_annotations', annotation_name)
+        annFile = os.path.join(ROOT_PATH, 'new_annotations', annotation_name)
 
         with open(annFile,'r') as load_f:
             dataset = json.load(load_f)
@@ -267,19 +269,19 @@ def main(shot: int=0, full_class: bool=False):
         print("Total number of boxes is ", len(support_dict['id']))
         
         if not shot:
-            pickle_name = "train_support_df.pkl"
+            json_name = "train_support_df.json"
         elif full_class:
-            pickle_name = f"full_class_{shot}_shot_support_df.pkl"
+            json_name = f"full_class_{shot}_shot_support_df.json"
         else:
-            pickle_name = f"{shot}_shot_support_df.pkl"
-        pickle_file = os.path.join(root_path, pickle_name)
-        support_df.to_pickle(pickle_file)
+            json_name = f"{shot}_shot_support_df.json"
+        json_file = os.path.join(ROOT_PATH, json_name)
+        support_df.to_json(json_file, orient='records', lines=True)
         
     return support_df
 
 
 if __name__ == '__main__':
-    for shot in [0, 10]: # 0,
+    for shot in SHOTS:
         for full_class in [True, False]:
             if not shot and not full_class:
                 continue # skip redundant with full training set

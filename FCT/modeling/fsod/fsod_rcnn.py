@@ -226,11 +226,11 @@ class FsodRCNN(nn.Module):
     def init_model_voc(self):
         if 1:
             if self.test_seeds == 0:
-                support_path = os.path.join(self.data_dir, 'pascal_voc/voc_2007_trainval_{}_{}shot.pkl'.format(self.keepclasses, self.evaluation_shot))
+                support_path = os.path.join(self.data_dir, 'pascal_voc/voc_2007_trainval_{}_{}shot.json'.format(self.keepclasses, self.evaluation_shot))
             elif self.test_seeds >= 0:
-                support_path = os.path.join(self.data_dir, 'pascal_voc/seed{}/voc_2007_trainval_{}_{}shot.pkl'.format(self.test_seeds, self.keepclasses, self.evaluation_shot))
+                support_path = os.path.join(self.data_dir, 'pascal_voc/seed{}/voc_2007_trainval_{}_{}shot.json'.format(self.test_seeds, self.keepclasses, self.evaluation_shot))
 
-            support_df = pd.read_pickle(support_path)
+            support_df = pd.read_json(support_path, orient='records', lines=True)
 
             min_shot = self.evaluation_shot
             max_shot = self.evaluation_shot
@@ -265,16 +265,16 @@ class FsodRCNN(nn.Module):
         if 1:
             if self.keepclasses == 'all':
                 if self.test_seeds == 0:
-                    support_path = os.path.join(self.data_dir, 'full_class_{}_shot_support_df.pkl'.format(self.evaluation_shot))##(self.data_dir, 'coco/full_class_{}_shot_support_df.pkl'.format(self.evaluation_shot))
+                    support_path = os.path.join(self.data_dir, 'full_class_{}_shot_support_df.json'.format(self.evaluation_shot))##(self.data_dir, 'coco/full_class_{}_shot_support_df.json'.format(self.evaluation_shot))
                 elif self.test_seeds > 0:
-                    support_path = os.path.join(self.data_dir, 'seed{}/full_class_{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot))
+                    support_path = os.path.join(self.data_dir, 'seed{}/full_class_{}_shot_support_df.json'.format(self.test_seeds, self.evaluation_shot))
             else:
                 if self.test_seeds == 0:
-                    support_path = os.path.join(self.data_dir, '{}_shot_support_df.pkl'.format(self.evaluation_shot))
+                    support_path = os.path.join(self.data_dir, '{}_shot_support_df.json'.format(self.evaluation_shot))
                 elif self.test_seeds > 0:
-                    support_path = os.path.join(self.data_dir, 'seed{}/{}_shot_support_df.pkl'.format(self.test_seeds, self.evaluation_shot))
+                    support_path = os.path.join(self.data_dir, 'seed{}/{}_shot_support_df.json'.format(self.test_seeds, self.evaluation_shot))
 
-            support_df = pd.read_pickle(support_path)
+            support_df = pd.read_json(support_path, orient='records', lines=True)
             if 'coco' in self.dataset:
                 metadata = MetadataCatalog.get('coco_2014_train')
             else:

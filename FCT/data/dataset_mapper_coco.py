@@ -85,21 +85,20 @@ class DatasetMapperWithSupportCOCO:
             if self.few_shot:
                 if 'full' in cfg.DATASETS.TRAIN[0]:
                     if self.seeds == 0:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "full_class_{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
+                        path = f"full_class_{cfg.INPUT.FS.SUPPORT_SHOT}_shot_support_df.json"
                     else:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "seed{}/full_class_{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
+                        path = f"seed{self.seeds}/full_class_{cfg.INPUT.FS.SUPPORT_SHOT}_shot_support_df.json"
                 else:
                     if self.seeds == 0:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "{}_shot_support_df.pkl".format(cfg.INPUT.FS.SUPPORT_SHOT)))
+                        path = f"{cfg.INPUT.FS.SUPPORT_SHOT}_shot_support_df.json"
                     else:
-                        self.support_df = pd.read_pickle(os.path.join(self.data_dir, "seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
-                        print("training support_df=", os.path.join(self.data_dir, "seed{}/{}_shot_support_df.pkl".format(self.seeds, cfg.INPUT.FS.SUPPORT_SHOT)))
+                        path = f"seed{self.seeds}/{cfg.INPUT.FS.SUPPORT_SHOT}_shot_support_df.json"
             else:
-                self.support_df = pd.read_pickle(os.path.join(self.data_dir, "train_support_df.pkl"))
-                print("training support_df= ", os.path.join(self.data_dir, "train_support_df.pkl"))
+                path = "train_support_df.json"
+            
+            self.support_df = pd.read_json(os.path.join(self.data_dir, path), orient='records', lines=True)
+            print("training support_df=", os.path.join(self.data_dir, path))
+
             if 'coco' in cfg.DATASETS.TRAIN[0]:
                 metadata = MetadataCatalog.get('coco_2014_train')
             else:
