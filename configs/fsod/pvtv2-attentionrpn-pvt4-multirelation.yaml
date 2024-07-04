@@ -1,9 +1,9 @@
 _BASE_: pvtv2-retinanet-pvt4.yaml
 MODEL:
   BACKBONE: 
-    NAME: build_retinanet_fsod_pvtv2_fpn_backbone
+    NAME: FsodPyramidVisionTransformerV2
   PROPOSAL_GENERATOR:
-    NAME: CrossScalesRPN
+    NAME: AttentionRPN
   ROI_BOX_HEAD:
     NAME: FsodPVT4MultiRelationBoxHead
 VERSION: 2
