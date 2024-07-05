@@ -1,6 +1,12 @@
 import logging
+from datetime import timedelta
+import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
 
-from detectron2.engine.launch import _find_free_port, DEFAULT_TIMEOUT, _distributed_worker
+from detectron2.utils import comm
+
+from detectron2.engine.launch import _find_free_port, DEFAULT_TIMEOUT
 
 __all__ = ["launch"]
 
@@ -48,15 +54,50 @@ def launch(
             )
 
 
-        _distributed_worker(
-            local_rank,
-            main_func,
-            world_size,
-            num_gpus_per_machine,
-            machine_rank,
-            dist_url,
-            args,
-            timeout,
-            )
+        _distributed_worker(machine_rank, main_func, world_size,num_gpus_per_machine,
+                local_rank,
+                dist_url,
+                args,
+                timeout,)
     else:
         main_func(*args)
+
+
+def _distributed_worker(
+    rank,
+    main_func,
+    world_size,
+    num_gpus_per_machine,
+    local_rank,
+    dist_url,
+    args,
+    timeout=DEFAULT_TIMEOUT,
+):
+    has_gpu = torch.cuda.is_available()
+    #if has_gpu:
+    #    assert num_gpus_per_machine <= torch.cuda.device_count()
+    global_rank = rank#machine_rank * num_gpus_per_machine + local_rank
+    try:
+        dist.init_process_group(
+            backend="NCCL" if has_gpu else "GLOO",
+            init_method=dist_url,
+            world_size=world_size,
+            rank=global_rank,
+            timeout=timeout,
+        )
+    except Exception as e:
+        logger = logging.getLogger(__name__)
+        logger.error("Process group URL: {}".format(dist_url))
+        raise e
+
+    # Setup the local process group.
+    comm.create_local_process_group(num_gpus_per_machine)
+    if has_gpu:
+        torch.cuda.set_device(local_rank)
+
+    # synchronize is needed here to prevent a possible timeout after calling init_process_group
+    # See: https://github.com/facebookresearch/maskrcnn-benchmark/issues/172
+    # print("distrank: ", dist.get_rank(group=_LOCAL_PROCESS_GROUP))
+    comm.synchronize()
+
+    main_func(*args)
