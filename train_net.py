@@ -232,12 +232,46 @@ def get_custom_argument_parser():
 
 if __name__ == "__main__":
     args = get_custom_argument_parser().parse_args()
+    try:
+        import idr_torch
+        from lunch import launch
+
+        # Use idr_torch to set up environment variables
+        rank = idr_torch.rank
+        local_rank = idr_torch.local_rank
+        size = idr_torch.size
+        cpus_per_task = idr_torch.cpus_per_task
+        world_size = size
+        os.environ['MASTER_ADDR'] = os.environ['MASTER_ADDR']
+        os.environ['MASTER_PORT'] = os.environ['MASTER_PORT']
+
+        num_nodes = len(idr_torch.hostnames)
+        num_gpus_per_node = torch.cuda.device_count()
+
+        args.num_machines = num_nodes
+        args.machine_rank = rank
+        args.local_rank = local_rank
+        args.dist_url = 'env://'
+        args.num_gpus = num_gpus_per_node
+        launch(
+            main,
+            args.num_gpus,
+            num_machines=args.num_machines,
+            machine_rank=args.machine_rank,
+            dist_url=args.dist_url,
+            local_rank=args.local_rank,
+            args=(args,),
+        )
+    except ImportError:
+        launch(
+            main,
+            args.num_gpus,
+            num_machines=args.num_machines,
+            machine_rank=args.machine_rank,
+            dist_url=args.dist_url,
+            args=(args,),
+        )
+
     print("Command Line Args:", args)
-    launch(
-        main,
-        args.num_gpus,
-        num_machines=args.num_machines,
-        machine_rank=args.machine_rank,
-        dist_url=args.dist_url,
-        args=(args,),
-    )
+    
+    
