@@ -234,7 +234,7 @@ if __name__ == "__main__":
     args = get_custom_argument_parser().parse_args()
     try:
         import idr_torch
-        from lunch import launch
+        from FCT.engine import launch
 
         # Use idr_torch to set up environment variables
         rank = idr_torch.rank
