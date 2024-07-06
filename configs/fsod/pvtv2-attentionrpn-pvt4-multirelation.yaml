@@ -1,4 +1,4 @@
-_BASE_: pvtv2-retinanet-pvt4.yaml
+_BASE_: pvtv2-pvt4.yaml
 MODEL:
   BACKBONE: 
     NAME: FsodPyramidVisionTransformerV2
