@@ -36,6 +36,11 @@ _C.MODEL.MULTI_RELATION.LOCAL_CORRELATION = True
 _C.MODEL.MULTI_RELATION.PATCH_RELATION = True
 
 # ---------------------------------------------------------------------------- #
+# Solver
+# ---------------------------------------------------------------------------- #
+_C.SOLVER.WEIGHT_DECAY_BIAS = _C.SOLVER.WEIGHT_DECAY  # None means following WEIGHT_DECAY
+
+# ---------------------------------------------------------------------------- #
 # Misc options
 # ---------------------------------------------------------------------------- #
 _C.OUTPUT_DIR = "./output"
