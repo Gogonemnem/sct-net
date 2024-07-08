@@ -262,7 +262,7 @@ if __name__ == "__main__":
             local_rank=args.local_rank,
             args=(args,),
         )
-    except ImportError:
+    except ModuleNotFoundError:
         launch(
             main,
             args.num_gpus,
