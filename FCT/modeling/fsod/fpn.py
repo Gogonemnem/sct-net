@@ -30,8 +30,6 @@ class FsodFPN(FPN):
                     if module is not None:
                         for param in module.parameters():
                             param.requires_grad = False
-                    else:
-                        raise ValueError(f"Module {module_name}{stage} does not exist")
 
         if self.top_block is not None:
             for idx, module in enumerate(self.top_block.children(), start=stages[-1] + 1):
