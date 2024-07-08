@@ -1,14 +1,44 @@
+import math
+
 from torch.nn import functional as F
 
 from detectron2.layers import ShapeSpec
 from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
 from detectron2.modeling.backbone.fpn import FPN, LastLevelP6P7
+from detectron2.config import configurable
 
 from .pvt_v2 import PyramidVisionTransformerV2
 from .fsod_pvt_v2 import FsodPyramidVisionTransformerV2
 
 
 class FsodFPN(FPN):
+    def __init__(self, *args, freeze_at=0, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._freeze_stages(freeze_at)
+
+    def _freeze_stages(self, freeze_at=0):
+        input_shapes = self.bottom_up.output_shape()
+        strides = [input_shapes[f].stride for f in self.in_features]
+        stages = [int(math.log2(s)) for s in strides]
+
+        module_names = ["fpn_lateral", "fpn_output"]
+
+        for stage in stages:
+            if freeze_at >= stage:
+                for module_name in module_names:
+                    module = getattr(self, f"{module_name}{stage}")
+                    if module is not None:
+                        for param in module.parameters():
+                            param.requires_grad = False
+                    else:
+                        raise ValueError(f"Module {module_name}{stage} does not exist")
+
+        if self.top_block is not None:
+            for idx, module in enumerate(self.top_block.children(), start=stages[-1] + 1):
+                if freeze_at >= idx:
+                    for param in module.parameters():
+                        param.requires_grad = False
+    
     def forward(self, x, y):
         x, y = self.bottom_up(x, y)
         x = self._fpn_forward(x)
@@ -84,7 +114,9 @@ def build_retinanet_fsod_pvtv2_fpn_backbone(cfg, input_shape: ShapeSpec):
     out_channels = cfg.MODEL.FPN.OUT_CHANNELS
     last_in_feature = in_features[-1]
     in_channels_p6p7 = bottom_up.output_shape()[last_in_feature].channels
+    freeze_at = cfg.MODEL.BACKBONE.FREEZE_AT
     backbone = FsodFPN(
+        freeze_at=freeze_at,
         bottom_up=bottom_up,
         in_features=in_features,
         out_channels=out_channels,
