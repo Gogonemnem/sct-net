@@ -184,25 +184,27 @@ class MultiRelationBoxHead(nn.Module):
         """
         return self._output_size
 
+# TODO: keys are now reusable, but is a bit hacky.
+# Is it even "good" to have both pvt4 and multi_relation in the same head?
 @ROI_BOX_HEAD_REGISTRY.register()
 class FsodPVT4MultiRelationBoxHead(nn.Module):
     @configurable
-    def __init__(self, fsod_pvt4, multi_relation):
+    def __init__(self, pvt4_stage, multi_relation):
         super().__init__()
-        self.fsod_pvt4 = fsod_pvt4
+        self.stage = pvt4_stage
         self.multi_relation = multi_relation
 
     @classmethod
     def from_config(cls, cfg, input_shape):
-        fsod_pvt4 = ROI_BOX_HEAD_REGISTRY.get("FsodPVT4BoxHead")(cfg, input_shape)
-        multi_relation = ROI_BOX_HEAD_REGISTRY.get("MultiRelationBoxHead")(cfg, fsod_pvt4.output_shape)
+        pvt4_box_head = ROI_BOX_HEAD_REGISTRY.get("FsodPVT4BoxHead")(cfg, input_shape)
+        multi_relation = ROI_BOX_HEAD_REGISTRY.get("MultiRelationBoxHead")(cfg, pvt4_box_head.output_shape)
         return {
-            "fsod_pvt4": fsod_pvt4,
+            "pvt4_stage": pvt4_box_head.stage,
             "multi_relation": multi_relation,
         }
 
     def forward(self, x, y):
-        x, y = self.fsod_pvt4(x, y)
+        x, y = self.stage(x, y)
         return self.multi_relation(x, y)
     
     @property
