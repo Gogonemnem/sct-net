@@ -9,7 +9,7 @@ from .fsod_fast_rcnn import FsodFastRCNNOutputLayers
 from .fsod_rpn import FsodRPN
 from .backbone.pvt_v2 import PyramidVisionTransformerV2
 from .backbone.fsod_pvt_v2 import FsodPyramidVisionTransformerV2
-from .backbone.mvit_v2 import MultiScaleVit
+# from .backbone.mvit_v2 import MultiScaleVit
 from .backbone.wip_swin import SwinTransformerV2
 from .box_head.fsod_pvt5 import FsodPVT5BoxHead
 from .box_head.pvt5 import PVT5BoxHead
