@@ -187,7 +187,7 @@ class MultiRelationBoxHead(nn.Module):
 # TODO: keys are now reusable, but is a bit hacky.
 # Is it even "good" to have both pvt4 and multi_relation in the same head?
 @ROI_BOX_HEAD_REGISTRY.register()
-class FsodPVT4MultiRelationBoxHead(nn.Module):
+class FsodPVT5MultiRelationBoxHead(nn.Module):
     @configurable
     def __init__(self, pvt4_stage, multi_relation):
         super().__init__()

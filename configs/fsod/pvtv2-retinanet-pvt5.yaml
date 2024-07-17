@@ -11,5 +11,5 @@ MODEL:
   BACKBONE:
     NAME: build_retinanet_pvtv2_fpn_backbone
   ROI_BOX_HEAD:
-    NAME: "PVT4BoxHead"
+    NAME: "PVT5BoxHead"
 VERSION: 2

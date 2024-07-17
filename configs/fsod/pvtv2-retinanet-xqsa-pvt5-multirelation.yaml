@@ -1,9 +1,9 @@
-_BASE_: pvtv2-retinanet-pvt4.yaml
+_BASE_: pvtv2-retinanet-pvt5.yaml
 MODEL:
   BACKBONE: 
     NAME: build_retinanet_fsod_pvtv2_fpn_backbone
   PROPOSAL_GENERATOR:
     NAME: CrossScalesRPN
   ROI_BOX_HEAD:
-    NAME: FsodPVT4MultiRelationBoxHead
+    NAME: FsodPVT5MultiRelationBoxHead
 VERSION: 2
