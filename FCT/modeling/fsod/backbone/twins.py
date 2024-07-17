@@ -34,10 +34,16 @@ class Twins(_Twins, Backbone):
             num_layers = max(
                 [stage_names.get(f, 0) for f in out_features]
             )
+
+            if num_layers < len(self.blocks):
+                self.norm = None
+
             self.patch_embeds = self.patch_embeds[:num_layers]
             self.pos_drops = self.pos_drops[:num_layers]
             self.blocks = self.blocks[:num_layers]
             self.pos_block = self.pos_block[:num_layers]
+
+            
         else:
             num_layers = len(self.blocks)
         

@@ -66,6 +66,10 @@ class FsodTwinsBoxHead(FsodTwins):
         **kwargs,
         ):
         super().__init__(**kwargs)
+        self.patch_embeds = self.patch_embeds[-1:]
+        self.blocks = self.blocks[-1:]
+        self.pos_block = self.pos_block[-1:]
+        self.pos_drops = self.pos_drops[-1:]
 
         last_key = list(super().output_shape().keys())[-1]
         o = super().output_shape()[last_key]
