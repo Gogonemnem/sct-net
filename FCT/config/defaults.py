@@ -27,6 +27,50 @@ _C.MODEL.PVT.OUT_FEATURES = ["pvt4"]
 
 
 # ---------------------------------------------------------------------------- #
+# Swin Transformer options
+# ---------------------------------------------------------------------------- #
+_C.MODEL.SWIN = CN()
+_C.MODEL.SWIN.IMG_SIZE = 256
+_C.MODEL.SWIN.PATCH_SIZE = 4
+_C.MODEL.SWIN.GLOBAL_POOL = 'avg'
+_C.MODEL.SWIN.EMBED_DIM = 96
+_C.MODEL.SWIN.DEPTHS = [2, 2, 6, 2]
+_C.MODEL.SWIN.NUM_HEADS = [3, 6, 12, 24]
+_C.MODEL.SWIN.WINDOW_SIZE = 16
+_C.MODEL.SWIN.MLP_RATIO = 4.0
+_C.MODEL.SWIN.QKV_BIAS = True
+_C.MODEL.SWIN.QK_SCALE = None
+_C.MODEL.SWIN.DROP_RATE = 0.0
+_C.MODEL.SWIN.PROJ_DROP_RATE = 0.0
+_C.MODEL.SWIN.ATTN_DROP_RATE = 0.0
+_C.MODEL.SWIN.DROP_PATH_RATE = 0.1
+_C.MODEL.SWIN.ACT_LAYER = 'gelu'
+_C.MODEL.SWIN.NORM_LAYER = "LN"
+_C.MODEL.SWIN.PRETRAINED_WINDOW_SIZES = [0, 0, 0, 0]
+_C.MODEL.SWIN.OUT_FEATURES = ["stage4"]
+
+# ---------------------------------------------------------------------------- #
+# Twins options
+# ---------------------------------------------------------------------------- #
+_C.MODEL.TWINS = CN()
+_C.MODEL.TWINS.IMG_SIZE = 224
+_C.MODEL.TWINS.PATCH_SIZE = 4
+_C.MODEL.TWINS.GLOBAL_POOL = 'avg'
+_C.MODEL.TWINS.EMBED_DIMS = [64, 128, 256, 512]
+_C.MODEL.TWINS.NUM_HEADS = [2, 4, 8, 16]
+_C.MODEL.TWINS.MLP_RATIOS = [4, 4, 4, 4]
+_C.MODEL.TWINS.DEPTHS = [2, 2, 10, 4]
+_C.MODEL.TWINS.SR_RATIOS = [8, 4, 2, 1]
+_C.MODEL.TWINS.WSS = [7, 7, 7, 7]
+_C.MODEL.TWINS.DROP_RATE = 0.0
+_C.MODEL.TWINS.POS_DROP_RATE = 0.0
+_C.MODEL.TWINS.PROJ_DROP_RATE = 0.0
+_C.MODEL.TWINS.ATTN_DROP_RATE = 0.0
+_C.MODEL.TWINS.DROP_PATH_RATE = 0.0
+# _C.MODEL.TWINS.NORM_LAYER = "LN"
+_C.MODEL.TWINS.OUT_FEATURES = ["stage4"]
+
+# ---------------------------------------------------------------------------- #
 # Multi-Relation Box Head Detector Options
 # ---------------------------------------------------------------------------- #
 _C.MODEL.MULTI_RELATION = CN()

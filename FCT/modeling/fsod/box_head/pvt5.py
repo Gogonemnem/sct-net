@@ -1,13 +1,12 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
 import torch
 from torch import nn
 
 from detectron2.config import configurable
 from detectron2.layers import ShapeSpec
 from detectron2.modeling.roi_heads.box_head import ROI_BOX_HEAD_REGISTRY
-from .pvt_v2 import PyramidVisionTransformerStage
+from ..backbone.pvt_v2 import PyramidVisionTransformerStage
 
-from .pvt_v2 import get_norm
+from ..backbone.pvt_v2 import get_norm
 from functools import partial
 
 
@@ -15,7 +14,7 @@ from functools import partial
 # Therefore, to add new layers in this head class, please make sure they are
 # added in the order they will be used in forward().
 @ROI_BOX_HEAD_REGISTRY.register()
-class PVT4BoxHead(nn.Module):
+class PVT5BoxHead(nn.Module):
     @configurable
     def __init__(
         self,

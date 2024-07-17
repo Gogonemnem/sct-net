@@ -7,8 +7,8 @@ from detectron2.config import configurable
 from detectron2.layers import ShapeSpec
 from detectron2.modeling.roi_heads.box_head import ROI_BOX_HEAD_REGISTRY
 
-from .fsod_pvt_v2 import FsodPyramidVisionTransformerStage
-from .pvt_v2 import get_norm
+from ..backbone.fsod_pvt_v2 import FsodPyramidVisionTransformerStage
+from ..backbone.pvt_v2 import get_norm
 from functools import partial
 
 
@@ -16,7 +16,7 @@ from functools import partial
 # Therefore, to add new layers in this head class, please make sure they are
 # added in the order they will be used in forward().
 @ROI_BOX_HEAD_REGISTRY.register()
-class FsodPVT4BoxHead(nn.Module):
+class FsodPVT5BoxHead(nn.Module):
     @configurable
     def __init__(
         self,

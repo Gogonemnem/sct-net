@@ -1,0 +1,9 @@
+_BASE_: twinsv2-twins5.yaml
+MODEL:
+  BACKBONE: 
+    NAME: FsodTwins
+  PROPOSAL_GENERATOR:
+    NAME: AttentionRPN
+  ROI_BOX_HEAD:
+    NAME: FsodTwinsBoxHead # MultiRelationBoxHead
+VERSION: 2
