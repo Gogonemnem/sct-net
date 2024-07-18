@@ -161,15 +161,15 @@ CATEGORIES = {
 
 _PREDEFINED_SPLITS = {}
 _PREDEFINED_SPLITS["pascal"] = {
-    "pascal_train_nonvoc":            ("train", "new_annotations/base_split_instances_instances_train.json"), # by default no_smaller_32
-    "pascal_train_nonvoc_with_small": ("train", "new_annotations/base_split_instances_instances_train_with_small.json"), # includeing all boxes
+    "pascal_train_nonvoc":            ("train", "new_annotations/base_split_instances_train.json"), # by default no_smaller_32
+    "pascal_train_nonvoc_with_small": ("train", "new_annotations/base_split_instances_train_with_small.json"), # includeing all boxes
     "pascal_test":                    ("test",  "annotations/instances_test.json"),
 }
 
 # ==== Predefined datasets and splits for DIOR ==========
 _PREDEFINED_SPLITS["dior"] = {
-    "dior_train2017_nonvoc":             ("train2017", "new_annotations/base_split_instances_instances_train2017.json"), # by default no_smaller_32
-    "dior_train2017_nonvoc_with_small":  ("train2017", "new_annotations/base_split_instances_instances_train2017_with_small.json"), # includeing all boxes
+    "dior_train2017_nonvoc":             ("train2017", "new_annotations/base_split_instances_train2017.json"), # by default no_smaller_32
+    "dior_train2017_nonvoc_with_small":  ("train2017", "new_annotations/base_split_instances_train2017_with_small.json"), # includeing all boxes
     "dior_test2017":                     ("test2017",  "annotations/instances_test2017.json"),
 }
 
@@ -236,13 +236,14 @@ def register_all(root, dataset_name):
         )
 
 # Register them all under "./datasets"
-_root = os.getenv("DETECTRON2_DOTA", "datasets/data/dota")
+root_dir = "/gpfsscratch/rech/uio/urr97zp/" # CHANGE THIS
+_root = os.getenv("DETECTRON2_DOTA", root_dir + "datasets/data/dota")
 register_all(_root, "dota")
-_root = os.getenv("DETECTRON2_DIOR", "datasets/data/dior")
+_root = os.getenv("DETECTRON2_DIOR", root_dir + "datasets/data/dior")
 register_all(_root, "dior")
-_root = os.getenv("DETECTRON2_PASCAL", "datasets/data/pascal")
+_root = os.getenv("DETECTRON2_PASCAL", root_dir + "datasets/data/pascal")
 register_all(_root, "pascal")
-_root = os.getenv("DETECTRON2_COCO", "datasets/data/coco")
+_root = os.getenv("DETECTRON2_COCO", root_dir + "datasets/data/coco")
 register_all(_root, "coco")
 
 
