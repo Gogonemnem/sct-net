@@ -83,16 +83,14 @@ class DatasetMapperWithSupportCOCO:
             # support_df
             self.support_on = True
             if self.few_shot:
+                prefix = ""
+                if self.seeds != 0:
+                    prefix += f"seeds{self.seeds}/"
+                
                 if 'full' in cfg.DATASETS.TRAIN[0]:
-                    if self.seeds == 0:
-                        path = f"full_class_{cfg.INPUT.FS.SUPPORT_SHOT}_shot_support_df.json"
-                    else:
-                        path = f"seed{self.seeds}/full_class_{cfg.INPUT.FS.SUPPORT_SHOT}_shot_support_df.json"
-                else:
-                    if self.seeds == 0:
-                        path = f"{cfg.INPUT.FS.SUPPORT_SHOT}_shot_support_df.json"
-                    else:
-                        path = f"seed{self.seeds}/{cfg.INPUT.FS.SUPPORT_SHOT}_shot_support_df.json"
+                    prefix += "full_class_"
+                
+                path = prefix + f"{self.support_shot+1}_shot_support_df.json"
             else:
                 path = "train_support_df.json"
             
