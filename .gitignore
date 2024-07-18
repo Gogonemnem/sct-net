@@ -17,6 +17,7 @@ __pycache__/
 *.log
 *.tmp
 logs/
+log/
 
 # Ignore system-specific files
 .DS_Store
@@ -30,3 +31,4 @@ data/*
 datasets/data/*/
 weights/*
 output/*
+*.ipynb_checkpoints/
