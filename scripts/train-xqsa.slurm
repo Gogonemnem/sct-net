@@ -9,8 +9,8 @@
 #SBATCH --cpus-per-task=10
 ##SBATCH --partition=gpu_p2s
 #SBATCH --hint=nomultithread
-#SBATCH --time=24:00:00
-#SBATCH --qos=qos_gpu-t4
+#SBATCH --time=20:00:00
+#SBATCH --qos=qos_gpu-t3
 #SBATCH --account=uio@v100
 
 
@@ -30,8 +30,8 @@ cd /gpfswork/rech/uio/urr97zp/fsod-fct
 set -x
 
 # Your script
-base_config_name="pvtv2-retinanet-pvt4"
-few_shot_config_name="pvtv2-retinanet-xqsa-pvt4-multirelation"
+base_config_name="pvtv2-retinanet"
+few_shot_config_name="pvtv2-retinanet-xqsa-multirelation"
 dataset="dota"
 
 batch_size=8
@@ -45,8 +45,8 @@ dataset_config="configs/fsod/${dataset}.yaml"
 
 export TORCH_DISTRIBUTED_DEBUG=DETAIL
 # ----------------- Training -----------------
-### Pretraining (Single-Branch) 
-srun python3 train_net.py --config-file "$dataset_config" \
+# ### Pretraining (Single-Branch) 
+srun python3 train_net.py --config-file "$dataset_config" --resume \
     --additional-configs configs/fsod/pretraining.yaml configs/fsod/${base_config_name}.yaml\
         -- SOLVER.IMS_PER_BATCH $batch_size \
         OUTPUT_DIR output/${dataset}/${base_config_name}/pretraining/ \
@@ -54,7 +54,7 @@ srun python3 train_net.py --config-file "$dataset_config" \
         2>&1 | tee "logs/pretraining-${base_config_name}.txt"
 
 ### Training (Two-branch) --eval-only 
-srun python3 train_net.py --config-file "$dataset_config" \
+srun python3 train_net.py --config-file "$dataset_config" --resume \
     --additional-configs configs/fsod/training.yaml configs/fsod/${few_shot_config_name}.yaml\
         -- SOLVER.IMS_PER_BATCH $batch_size \
         OUTPUT_DIR output/${dataset}/${few_shot_config_name}/training/ \
@@ -68,14 +68,15 @@ for i in "$few_shot_iterations"; do
     
     datasets="('${dataset_name}',)"
     test_shots="('${i}',)"
+    support_shot=$((i-1))
     
     # Execute the training command with the adjusted dataset name
-    srun python3 train_net.py --config-file "$dataset_config" \
+    srun python3 train_net.py --config-file "$dataset_config" --resume \
         --additional-configs configs/fsod/finetuning.yaml configs/fsod/${few_shot_config_name}.yaml\
         -- SOLVER.IMS_PER_BATCH $batch_size \
         OUTPUT_DIR output/${dataset}/${few_shot_config_name}/finetuning/${i}shot \
         MODEL.WEIGHTS output/${dataset}/${few_shot_config_name}/training/model_final.pth \
-        INPUT.FS.SUPPORT_SHOT $i \
+        INPUT.FS.SUPPORT_SHOT $support_shot \
         DATASETS.TRAIN "$datasets" \
         DATASETS.TEST_SHOTS "$test_shots" \
         2>&1 | tee "logs/finetuning-${config_name}_${i}shot.txt"
