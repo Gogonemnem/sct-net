@@ -235,8 +235,10 @@ class Block(_Block):
             norm_layer=nn.LayerNorm,
             sr_ratio=1,
             ws=None,
+            cross_attn=True,
             **kwargs,
     ):
+        self.cross_attn = cross_attn
         super().__init__(
             dim=dim,
             num_heads=num_heads,
@@ -260,6 +262,12 @@ class Block(_Block):
     def forward(self, x, size_query, y=None, size_support=None):
         if y is None:
             return super().forward(x, size_query)
+        
+        if not self.cross_attn:
+            return (
+                super().forward(x, size_query),
+                super().forward(y, size_support)
+            )
 
         x, y = self.attn(self.norm1(x), size_query, self.norm1(y), size_support)
         x = x + self.drop_path1(x)
@@ -290,6 +298,7 @@ class Twins(_Twins, Backbone):
         num_classes=None,
         out_features=None,
         freeze_at=0,
+        cross_attn=(True, True, True, True),
         **kwargs,
     ):
         super().__init__(
@@ -389,6 +398,7 @@ class Twins(_Twins, Backbone):
             'block_cls': Block, # we allow just one block class for now,
             'out_features': cfg.MODEL.TWINS.OUT_FEATURES,
             'freeze_at': cfg.MODEL.BACKBONE.FREEZE_AT,
+            'cross_attn': cfg.MODEL.BACKBONE.CROSS_ATTN,
         }
 
     def forward_single(self, x: torch.Tensor):
