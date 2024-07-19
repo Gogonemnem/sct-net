@@ -1,7 +1,7 @@
 _BASE_: twinsv2-twins5.yaml
 MODEL:
   BACKBONE: 
-    NAME: FsodTwins
+    NAME: Twins
   PROPOSAL_GENERATOR:
     NAME: AttentionRPN
   ROI_BOX_HEAD:

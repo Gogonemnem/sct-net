@@ -4,7 +4,7 @@ from detectron2.config import configurable
 from detectron2.modeling import ROI_BOX_HEAD_REGISTRY
 from detectron2.layers import ShapeSpec
 
-from ..backbone.twins import Twins, FsodTwins
+from ..backbone.twins import Twins
 
 
 @ROI_BOX_HEAD_REGISTRY.register()
@@ -58,7 +58,7 @@ class TwinsBoxHead(Twins):
 
 
 @ROI_BOX_HEAD_REGISTRY.register()
-class FsodTwinsBoxHead(FsodTwins):
+class FsodTwinsBoxHead(Twins):
     @configurable
     def __init__(
         self,
