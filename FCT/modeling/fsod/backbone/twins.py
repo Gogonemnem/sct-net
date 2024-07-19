@@ -401,7 +401,6 @@ class Block(_Block):
         if y is None:
             return super().forward(x, size_query)
 
-        raise Exception(y)
         x, y = self.attn(self.norm1(x), size_query, self.norm1(y), size_support)
         x = x + self.drop_path1(x)
         y = y + self.drop_path2(y)

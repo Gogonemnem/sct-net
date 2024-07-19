@@ -16,6 +16,10 @@ class TwinsBoxHead(Twins):
         **kwargs,
         ):
         super().__init__(**kwargs)
+        self.patch_embeds = self.patch_embeds[-1:]
+        self.blocks = self.blocks[-1:]
+        self.pos_block = self.pos_block[-1:]
+        self.pos_drops = self.pos_drops[-1:]
 
         last_key = list(super().output_shape().keys())[-1]
         o = super().output_shape()[last_key]
@@ -39,7 +43,7 @@ class TwinsBoxHead(Twins):
         """
         return self._output_size
 
-    def forward(self, x):
+    def forward_single(self, x):
         B_x, _, _, _ = x.shape
 
         x, size_query = self.patch_embeds[-1](x)
@@ -56,44 +60,9 @@ class TwinsBoxHead(Twins):
         x = x.reshape(B_x, *size_query, -1).permute(0, 3, 1, 2).contiguous()
         return x
 
-
-@ROI_BOX_HEAD_REGISTRY.register()
-class FsodTwinsBoxHead(Twins):
-    @configurable
-    def __init__(
-        self,
-        input_shape: ShapeSpec,
-        **kwargs,
-        ):
-        super().__init__(**kwargs)
-        self.patch_embeds = self.patch_embeds[-1:]
-        self.blocks = self.blocks[-1:]
-        self.pos_block = self.pos_block[-1:]
-        self.pos_drops = self.pos_drops[-1:]
-
-        last_key = list(super().output_shape().keys())[-1]
-        o = super().output_shape()[last_key]
-        self._output_size = ShapeSpec(channels=o.channels, height=input_shape.height // 2, width=input_shape.width // 2)
-
-    @classmethod
-    def from_config(cls, cfg, input_shape):
-        ret = super().from_config(cfg, input_shape)
-        ret['out_features'] = ['stage5']
-        ret['freeze_at'] = 0
-
-        ret['input_shape'] = input_shape
-        return ret
-
-    @property
-    @torch.jit.unused
-    def output_shape(self):
-        """
-        Returns:
-            ShapeSpec: the output feature shape
-        """
-        return self._output_size
-
-    def forward(self, x, y):
+    def forward(self, x, y=None):
+        if y is None:
+            return self.forward_single(x)
         B_x, _, _, _ = x.shape
         B_y, _, _, _ = y.shape
 
@@ -104,7 +73,7 @@ class FsodTwinsBoxHead(Twins):
         y = self.pos_drops[-1](y)
 
         for j, blk in enumerate(self.blocks[-1]):
-            x, y = blk(x, y, size_query, size_support)
+            x, y = blk(x, size_query, y, size_support)
             
             if j == 0:
                 x = self.pos_block[-1](x, size_query)  # PEG here
