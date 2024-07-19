@@ -2,16 +2,10 @@ import math
 
 from torch.nn import functional as F
 
-from detectron2.layers import ShapeSpec
-from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
-from detectron2.modeling.backbone.fpn import FPN, LastLevelP6P7
-from detectron2.config import configurable
-
-from .pvt_v2 import PyramidVisionTransformerV2
-from .fsod_pvt_v2 import FsodPyramidVisionTransformerV2
+from detectron2.modeling.backbone.fpn import FPN as _FPN
 
 
-class FsodFPN(FPN):
+class FPN(_FPN):
     def __init__(self, *args, freeze_at=0, **kwargs):
         super().__init__(*args, **kwargs)
         self._freeze_stages(freeze_at)
@@ -37,10 +31,16 @@ class FsodFPN(FPN):
                     for param in module.parameters():
                         param.requires_grad = False
     
-    def forward(self, x, y):
-        x, y = self.bottom_up(x, y)
+    def forward(self, x, y=None):
+        if y is None:
+            x = self.bottom_up(x)
+        else:
+            x, y = self.bottom_up(x, y)
+            y = self._fpn_forward(y)
+
         x = self._fpn_forward(x)
-        y = self._fpn_forward(y)
+        if y is None:
+            return x
         return x, y
 
     def _fpn_forward(self, x):
@@ -73,53 +73,3 @@ class FsodFPN(FPN):
             results.extend(self.top_block(top_block_in_feature))
         assert len(self._out_features) == len(results)
         return {f: res for f, res in zip(self._out_features, results)}
-    
-@BACKBONE_REGISTRY.register()
-def build_retinanet_pvtv2_fpn_backbone(cfg, input_shape: ShapeSpec):
-    """
-    Args:
-        cfg: a detectron2 CfgNode
-
-    Returns:
-        backbone (Backbone): backbone module, must be a subclass of :class:`Backbone`.
-    """
-    bottom_up = PyramidVisionTransformerV2(cfg, input_shape)
-    in_features = cfg.MODEL.FPN.IN_FEATURES
-    out_channels = cfg.MODEL.FPN.OUT_CHANNELS
-    last_in_feature = in_features[-1]
-    in_channels_p6p7 = bottom_up.output_shape()[last_in_feature].channels
-    backbone = FPN(
-        bottom_up=bottom_up,
-        in_features=in_features,
-        out_channels=out_channels,
-        norm=cfg.MODEL.FPN.NORM,
-        top_block=LastLevelP6P7(in_channels_p6p7, out_channels, in_feature=last_in_feature),
-        fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
-    )
-    return backbone
-
-@BACKBONE_REGISTRY.register()
-def build_retinanet_fsod_pvtv2_fpn_backbone(cfg, input_shape: ShapeSpec):
-    """
-    Args:
-        cfg: a detectron2 CfgNode
-
-    Returns:
-        backbone (Backbone): backbone module, must be a subclass of :class:`Backbone`.
-    """
-    bottom_up = FsodPyramidVisionTransformerV2(cfg, input_shape)
-    in_features = cfg.MODEL.FPN.IN_FEATURES
-    out_channels = cfg.MODEL.FPN.OUT_CHANNELS
-    last_in_feature = in_features[-1]
-    in_channels_p6p7 = bottom_up.output_shape()[last_in_feature].channels
-    freeze_at = cfg.MODEL.BACKBONE.FREEZE_AT
-    backbone = FsodFPN(
-        freeze_at=freeze_at,
-        bottom_up=bottom_up,
-        in_features=in_features,
-        out_channels=out_channels,
-        norm=cfg.MODEL.FPN.NORM,
-        top_block=LastLevelP6P7(in_channels_p6p7, out_channels, in_feature=last_in_feature),
-        fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
-    )
-    return backbone

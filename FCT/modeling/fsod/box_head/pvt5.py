@@ -10,9 +10,6 @@ from ..backbone.pvt_v2 import get_norm
 from functools import partial
 
 
-# To get torchscript support, we make the head a subclass of `nn.Module`.
-# Therefore, to add new layers in this head class, please make sure they are
-# added in the order they will be used in forward().
 @ROI_BOX_HEAD_REGISTRY.register()
 class PVT5BoxHead(nn.Module):
     @configurable
@@ -74,9 +71,8 @@ class PVT5BoxHead(nn.Module):
             "norm_layer": cfg.MODEL.PVT.NORM_LAYER,
         }
 
-    def forward(self, x):
-        x = self.stage(x)
-        return x
+    def forward(self, x, y=None):
+        return self.stage(x, y)
 
     @property
     @torch.jit.unused
@@ -90,3 +86,35 @@ class PVT5BoxHead(nn.Module):
             return ShapeSpec(channels=o)
         else:
             return o
+        
+# TODO: keys are now reusable, but is a bit hacky.
+# Is it even "good" to have both pvt4 and multi_relation in the same head?
+@ROI_BOX_HEAD_REGISTRY.register()
+class FsodPVT5MultiRelationBoxHead(nn.Module):
+    @configurable
+    def __init__(self, pvt4_stage, multi_relation):
+        super().__init__()
+        self.stage = pvt4_stage
+        self.multi_relation = multi_relation
+
+    @classmethod
+    def from_config(cls, cfg, input_shape):
+        pvt4_box_head = ROI_BOX_HEAD_REGISTRY.get("FsodPVT4BoxHead")(cfg, input_shape)
+        multi_relation = ROI_BOX_HEAD_REGISTRY.get("MultiRelationBoxHead")(cfg, pvt4_box_head.output_shape)
+        return {
+            "pvt4_stage": pvt4_box_head.stage,
+            "multi_relation": multi_relation,
+        }
+
+    def forward(self, x, y):
+        x, y = self.stage(x, y)
+        return self.multi_relation(x, y)
+    
+    @property
+    @torch.jit.unused
+    def output_shape(self):
+        """
+        Returns:
+            ShapeSpec: the output feature shape
+        """
+        return self.multi_relation._output_size

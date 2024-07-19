@@ -1,25 +1,27 @@
-from typing import Tuple, List, Callable, Union
+from typing import Callable, List, Union
+from functools import partial
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional as F
 import torch.utils.checkpoint as checkpoint
 
 from detectron2.config import configurable
-from detectron2.modeling.backbone import Backbone
-from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
+from detectron2.modeling import BACKBONE_REGISTRY, Backbone
+from detectron2.modeling.backbone.fpn import LastLevelP6P7
 from detectron2.layers import ShapeSpec
 
-from timm.models.pvt_v2 import (
-    MlpWithDepthwiseConv as timmMlpWithDepthwiseConv,
-    Attention as timmAttention,
-    Block as timmBlock,
-    PyramidVisionTransformerStage as timmPyramidVisionTransformerStage,
-    PyramidVisionTransformerV2 as timmPyramidVisionTransformerV2
-)
-from timm.layers.norm import GroupNorm, GroupNorm1, LayerNorm, LayerNorm2d, LayerNormExp2d, RmsNorm
 from timm.layers import to_ntuple
-from functools import partial
+from timm.layers.norm import GroupNorm, GroupNorm1, LayerNorm, LayerNorm2d, LayerNormExp2d, RmsNorm
+from timm.models.pvt_v2 import (
+    MlpWithDepthwiseConv as _MlpWithDepthwiseConv,
+    Attention as _Attention,
+    Block as _Block,
+    PyramidVisionTransformerStage as _PyramidVisionTransformerStage,
+    PyramidVisionTransformerV2 as _PyramidVisionTransformerV2
+)
+
+from .fpn import FPN
 
 def get_norm(norm_layer: str, out_channels: int, **kwargs):
     """
@@ -36,7 +38,7 @@ def get_norm(norm_layer: str, out_channels: int, **kwargs):
     else:
         raise NotImplementedError(f"Norm type {norm_layer} is not supported (in this code)")
 
-class MlpWithDepthwiseConv(timmMlpWithDepthwiseConv):
+class MlpWithDepthwiseConv(_MlpWithDepthwiseConv):
     def forward(self, x, feat_size: List[int]):
         x = self.fc1(x)
         B, N, C = x.shape
@@ -50,8 +52,8 @@ class MlpWithDepthwiseConv(timmMlpWithDepthwiseConv):
         x = self.drop(x)
         return x
 
-class Attention(timmAttention):
-    def forward(self, x, feat_size: List[int]):
+class Attention(_Attention):
+    def forward_single(self, x, feat_size: List[int]):
         B, N, C = x.shape
         H, W = feat_size
         q = self.q(x).reshape(B, N, self.num_heads, -1).permute(0, 2, 1, 3)
@@ -86,7 +88,83 @@ class Attention(timmAttention):
         x = self.proj_drop(x)
         return x
 
-class Block(timmBlock):
+    def forward(self, x, feat_size_query: List[int], y=None, feat_size_support: List[int]=None):
+        if y is None:
+            return self.forward_single(x, feat_size_query)
+        # B, N, C = x.shape
+        # H, W = feat_size
+        if x.shape[0] == 1:
+            reverse = False
+            xs = [x, y]
+            feat_sizes = [feat_size_query, feat_size_support]
+        elif y.shape[0] == 1:
+            reverse = True
+            xs = [y, x]
+            feat_sizes = [feat_size_support, feat_size_query]
+        else:
+            raise ValueError('Either the query or support tensor should have a batch size of 1')
+        del x, y, feat_size_query, feat_size_support
+        shapes = [x.shape for x in xs]
+
+        qs = [self.q(x).reshape(*x.shape[:2], self.num_heads, -1).permute(0, 2, 1, 3) for x in xs]
+
+        ks, vs = [], []
+        for x, feat_size in zip(xs, feat_sizes):
+            B, N, C = x.shape
+            H, W = feat_size
+
+            if self.pool is not None:
+                x = x.permute(0, 2, 1).reshape(B, C, H, W).contiguous()
+                x = self.sr(self.pool(x)).reshape(B, C, -1).permute(0, 2, 1)
+                x = self.norm(x)
+                x = self.act(x)
+            elif self.sr is not None:
+                x = x.permute(0, 2, 1).reshape(B, C, H, W).contiguous()
+                x = self.sr(x).reshape(B, C, -1).permute(0, 2, 1)
+                x = self.norm(x)
+            
+            kv = self.kv(x).reshape(B, -1, 2, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4).contiguous()
+            ks.append(kv[0])
+            vs.append(kv[1])
+        
+        del xs, kv
+
+        k_expanded = ks[0].expand(ks[1].shape[0], -1, -1, -1)
+        k_mean = ks[1].mean(dim=0, keepdim=True)
+
+        v_expanded = vs[0].expand(vs[1].shape[0], -1, -1, -1)
+        v_mean = vs[1].mean(dim=0, keepdim=True)
+
+        if not reverse:
+            k_cats = [torch.cat((ks[0], k_mean), dim=2), torch.cat((k_expanded, ks[1]), dim=2)]
+            v_cats = [torch.cat((vs[0], v_mean), dim=2), torch.cat((v_expanded, vs[1]), dim=2)]
+        else:
+            k_cats = [torch.cat((k_mean, ks[0]), dim=2), torch.cat((ks[1], k_expanded), dim=2)]
+            v_cats = [torch.cat((v_mean, vs[0]), dim=2), torch.cat((vs[1], v_expanded), dim=2)]
+
+        outputs = []
+        for shape, feat_size, q, k_cat, v_cat in zip(shapes, feat_sizes, qs, k_cats, v_cats):
+            H, W = feat_size
+            
+            if self.fused_attn:
+                x = F.scaled_dot_product_attention(q, k_cat, v_cat, dropout_p=self.attn_drop.p if self.training else 0.)
+            else:
+                q = q * self.scale
+                attn = q @ k_cat.transpose(-2, -1)
+                attn = attn.softmax(dim=-1)
+                attn = self.attn_drop(attn)
+                x = attn @ v_cat
+
+            x = x.transpose(1, 2).reshape(*shape)
+            x = self.proj(x)
+            x = self.proj_drop(x)
+            outputs.append(x)
+        
+        if reverse:
+            return reversed(outputs)
+        return tuple(outputs)
+    
+class Block(_Block):
     def __init__(
             self,
             dim,
@@ -123,6 +201,7 @@ class Block(timmBlock):
             attn_drop=attn_drop,
             proj_drop=proj_drop,
         )
+
         self.mlp = MlpWithDepthwiseConv(
             in_features=dim,
             hidden_features=int(dim * mlp_ratio),
@@ -131,12 +210,25 @@ class Block(timmBlock):
             extra_relu=linear_attn,
         )
 
-class PyramidVisionTransformerStage(timmPyramidVisionTransformerStage):
+    def forward(self, x, feat_size_query: List[int], y=None, feat_size_support: List[int]=None):
+        if y is None:
+            return super().forward(x, feat_size_query)
+
+        x, y = self.attn(self.norm1(x), feat_size_query, self.norm1(y), feat_size_support)
+        x = x + self.drop_path1(x)
+        y = y + self.drop_path1(y)
+
+        x = x + self.drop_path2(self.mlp(self.norm2(x), feat_size_query))
+        y = y + self.drop_path2(self.mlp(self.norm2(y), feat_size_support))
+        return x, y
+    
+class PyramidVisionTransformerStage(_PyramidVisionTransformerStage):
     def __init__(
             self, 
             dim: int,
             dim_out: int,
             depth: int,
+            branch_embed: bool = True,
             downsample: bool = True,
             num_heads: int = 8,
             sr_ratio: int = 1,
@@ -146,7 +238,8 @@ class PyramidVisionTransformerStage(timmPyramidVisionTransformerStage):
             proj_drop: float = 0.,
             attn_drop: float = 0.,
             drop_path: Union[List[float], float] = 0.0,
-            norm_layer: Callable = LayerNorm,):
+            norm_layer: Callable = LayerNorm,
+            ):
         super().__init__(
             dim=dim,
             dim_out=dim_out,
@@ -162,7 +255,6 @@ class PyramidVisionTransformerStage(timmPyramidVisionTransformerStage):
             drop_path=drop_path,
             norm_layer=norm_layer,
         )
-
         self.blocks = nn.ModuleList([Block(
             dim=dim_out,
             num_heads=num_heads,
@@ -175,10 +267,54 @@ class PyramidVisionTransformerStage(timmPyramidVisionTransformerStage):
             drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
             norm_layer=norm_layer,
         ) for i in range(depth)])
+        
+        # branch_embed = False
+        if branch_embed:
+            num_branches = 2
+            self.branch_embedding = nn.Embedding(num_branches, dim_out)
+            # self.branch_embedding.apply(self._init_weights)
+        self.branch_embed = branch_embed
 
+    # def _init_weights(self, m):
+    #     if isinstance(m, nn.Embedding):
+    #         m.weight.data.normal_(0, 0.02)
+
+
+    def forward(self, x, y=None):
+        if y is None:
+            return super().forward(x)
+
+        if self.downsample is not None:
+            # input to downsample is B, C, H, W
+            x = self.downsample(x)  # output B, H, W, C
+            y = self.downsample(y)
+
+        if self.branch_embed:
+            x_branch_embed = torch.zeros(x.shape[:-1], dtype=torch.long, device=x.device)
+            x = x + self.branch_embedding(x_branch_embed)
+
+            y_branch_embed = torch.ones(y.shape[:-1], dtype=torch.long, device=y.device)
+            y = y + self.branch_embedding(y_branch_embed)
+
+        Bq, Hq, Wq, Cq = x.shape
+        Bs, Hs, Ws, Cs = y.shape
+        feat_size_query = (Hq, Wq)
+        feat_size_support = (Hs, Ws)
+        x = x.reshape(Bq, -1, Cq)
+        y = y.reshape(Bs, -1, Cs)
+        for blk in self.blocks:
+            if self.grad_checkpointing and not torch.jit.is_scripting():
+                x, y = checkpoint.checkpoint(blk, x, feat_size_query, y, feat_size_support)
+            else:
+                x, y = blk(x, feat_size_query, y, feat_size_support)
+        x = self.norm(x)
+        y = self.norm(y)
+        x = x.reshape(Bq, feat_size_query[0], feat_size_query[1], -1).permute(0, 3, 1, 2).contiguous()
+        y = y.reshape(Bs, feat_size_support[0], feat_size_support[1], -1).permute(0, 3, 1, 2).contiguous()
+        return x, y
 
 @BACKBONE_REGISTRY.register()
-class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
+class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
     
     @configurable
     def __init__(
@@ -202,8 +338,10 @@ class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
             out_features=None,
             freeze_at=0,
             only_train_norm=False,
+            branch_embed=True,
             
     ):
+        
         num_stages = len(depths)
         mlp_ratios = to_ntuple(num_stages)(mlp_ratios)
         num_heads = to_ntuple(num_stages)(num_heads)
@@ -228,7 +366,7 @@ class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
             drop_path_rate=drop_path_rate,
             norm_layer=norm_layer
             )
-
+        
         self.stages = nn.ModuleList()
         dpr = [x.tolist() for x in torch.linspace(0, drop_path_rate, sum(depths)).split(depths)]
         prev_dim = embed_dims[0]
@@ -237,6 +375,7 @@ class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
                 dim=prev_dim,
                 dim_out=embed_dims[i],
                 depth=depths[i],
+                branch_embed=branch_embed,
                 downsample=i > 0,
                 num_heads=num_heads[i],
                 sr_ratio=sr_ratios[i],
@@ -250,10 +389,9 @@ class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
             )
             self.stages.append(stage)
             prev_dim = embed_dims[i]
-        
+
         self._out_feature_strides = {"patch_embed": 4}
         self._out_feature_channels = {"patch_embed": embed_dims[0]}
-        
         if out_features is not None:
             # Avoid keeping unused layers in this module. They consume extra memory
             # and may cause allreduce to fail
@@ -272,13 +410,9 @@ class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
                 out_features = ["pvt" + str(num_stages + 1)]
         self._out_features = out_features
         assert len(self._out_features)
-        
-        # children = [x[0] for x in self.named_children()]
-        # for out_feature in self._out_features:
-        #     assert out_feature in children, "Available children: {}".format(", ".join(children))
-        # assert len(self._out_features)
-        self._freeze_stages(freeze_at, only_train_norm)
 
+        self._freeze_stages(freeze_at, only_train_norm)
+    
     @classmethod
     def from_config(cls, cfg, input_shape):
         return {
@@ -299,10 +433,10 @@ class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
             "out_features": cfg.MODEL.PVT.OUT_FEATURES,
             "only_train_norm": cfg.MODEL.BACKBONE.ONLY_TRAIN_NORM,
             "freeze_at": cfg.MODEL.BACKBONE.FREEZE_AT,
+            "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED,
         }
 
-
-    def forward(self, x):
+    def forward_single(self, x):
         """
         Args:
             x: Tensor of shape (N,C,H,W). H, W must be a multiple of ``self.size_divisibility``.
@@ -326,7 +460,40 @@ class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
             if "linear" in self._out_features:
                 outputs["linear"] = self.forward_head(x)
         return outputs
-    
+
+    def forward(self, x, y=None):
+        """
+        Args:
+            x: Tensor of shape (N,C,H,W). H, W must be a multiple of ``self.size_divisibility``.
+
+        Returns:
+            dict[str->Tensor]: names and the corresponding features
+        """
+        if y is None:
+            return self.forward_single(x)
+
+        assert x.dim() == 4, f"PVTv2 takes a query input of shape (N, C, H, W). Got {x.shape} instead!"
+        assert y.dim() == 4, f"PVTv2 takes a support input of shape (N, C, H, W). Got {y.shape} instead!"
+        outputs_query = {}
+        outputs_support = {}
+
+        x = self.patch_embed(x)
+        y = self.patch_embed(y)
+        if "patch_embed" in self._out_features:
+            outputs_query["patch_embed"] = x
+            outputs_support["patch_embed"] = y
+        for name, stage in zip(self.stage_names, self.stages):
+            x, y = stage(x, y)
+            if name in self._out_features:
+                outputs_query[name] = x
+                outputs_support[name] = y
+        
+        if self.num_classes:
+            if "linear" in self._out_features:
+                outputs_query["linear"] = self.forward_head(x)
+
+        return outputs_query, outputs_support
+
     def output_shape(self):
         return {
             name: ShapeSpec(
@@ -357,3 +524,43 @@ class PyramidVisionTransformerV2(timmPyramidVisionTransformerV2, Backbone):
                     for name, param in module.named_parameters():
                         if 'norm' in name:
                             param.requires_grad = True
+
+        module_names = ["branch_embedding"]
+        for idx, stage in enumerate(self.stages, start=2):
+            if freeze_at >= idx:
+                for module_name in module_names:
+                    module = getattr(stage, module_name, None)
+                    if module is None:
+                        continue
+
+                    for param in module.parameters():
+                        param.requires_grad = False
+                        
+                        # Zero out the branch embeddings to avoid randomness
+                        param.data.fill_(0)
+
+
+@BACKBONE_REGISTRY.register()
+def build_retinanet_pvtv2_fpn_backbone(cfg, input_shape: ShapeSpec):
+    """
+    Args:
+        cfg: a detectron2 CfgNode
+
+    Returns:
+        backbone (Backbone): backbone module, must be a subclass of :class:`Backbone`.
+    """
+    pvt_args = PyramidVisionTransformerV2.from_config(cfg, input_shape)
+    bottom_up = PyramidVisionTransformerV2(**pvt_args)
+    in_features = cfg.MODEL.FPN.IN_FEATURES
+    out_channels = cfg.MODEL.FPN.OUT_CHANNELS
+    last_in_feature = in_features[-1]
+    in_channels_p6p7 = bottom_up.output_shape()[last_in_feature].channels
+    backbone = FPN(
+        bottom_up=bottom_up,
+        in_features=in_features,
+        out_channels=out_channels,
+        norm=cfg.MODEL.FPN.NORM,
+        top_block=LastLevelP6P7(in_channels_p6p7, out_channels, in_feature=last_in_feature),
+        fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
+    )
+    return backbone
