@@ -228,7 +228,6 @@ class PyramidVisionTransformerStage(_PyramidVisionTransformerStage):
             dim: int,
             dim_out: int,
             depth: int,
-            branch_embed: bool = True,
             downsample: bool = True,
             num_heads: int = 8,
             sr_ratio: int = 1,
@@ -239,7 +238,11 @@ class PyramidVisionTransformerStage(_PyramidVisionTransformerStage):
             attn_drop: float = 0.,
             drop_path: Union[List[float], float] = 0.0,
             norm_layer: Callable = LayerNorm,
+            branch_embed: bool = True,
+            cross_attn=True,
             ):
+        self.cross_attn = cross_attn
+
         super().__init__(
             dim=dim,
             dim_out=dim_out,
@@ -283,6 +286,12 @@ class PyramidVisionTransformerStage(_PyramidVisionTransformerStage):
     def forward(self, x, y=None):
         if y is None:
             return super().forward(x)
+
+        if not self.cross_attn:
+            return (
+                super().forward(x),
+                super().forward(y)
+            )
 
         if self.downsample is not None:
             # input to downsample is B, C, H, W
@@ -339,6 +348,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             freeze_at=0,
             only_train_norm=False,
             branch_embed=True,
+            cross_attn=(True, True, True, True),
             
     ):
         
@@ -386,6 +396,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
+                cross_attn=cross_attn[i]
             )
             self.stages.append(stage)
             prev_dim = embed_dims[i]
@@ -434,6 +445,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             "only_train_norm": cfg.MODEL.BACKBONE.ONLY_TRAIN_NORM,
             "freeze_at": cfg.MODEL.BACKBONE.FREEZE_AT,
             "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED,
+            "cross_attn": cfg.MODEL.BACKBONE.CROSS_ATTN,
         }
 
     def forward_single(self, x):

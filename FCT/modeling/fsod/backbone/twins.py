@@ -298,6 +298,7 @@ class Twins(_Twins, Backbone):
         num_classes=None,
         out_features=None,
         freeze_at=0,
+        branch_embed=True,
         cross_attn=(True, True, True, True),
         **kwargs,
     ):
@@ -331,12 +332,16 @@ class Twins(_Twins, Backbone):
                 drop_path=dpr[cur + i],
                 norm_layer=norm_layer,
                 sr_ratio=sr_ratios[k],
-                ws=1 if wss is None or i % 2 == 1 else wss[k]) for i in range(depths[k])],
+                ws=1 if wss is None or i % 2 == 1 else wss[k],
+                cross_attn=cross_attn[k]) for i in range(depths[k])],
             )
             self.blocks.append(_block)
             cur += depths[k]
 
         self.pos_block = nn.ModuleList([PosConv(embed_dim, embed_dim) for embed_dim in self.embed_dims])
+        if branch_embed:
+            self.branch_embedding = nn.ModuleList([nn.Embedding(2, embed_dim) for embed_dim in self.embed_dims])
+        self.branch_embed = branch_embed
 
         self._out_feature_strides = {"patch_embed": patch_size}
         self._out_feature_channels = {"patch_embed": self.embed_dims[0]}
@@ -398,6 +403,7 @@ class Twins(_Twins, Backbone):
             'block_cls': Block, # we allow just one block class for now,
             'out_features': cfg.MODEL.TWINS.OUT_FEATURES,
             'freeze_at': cfg.MODEL.BACKBONE.FREEZE_AT,
+            'branch_embed': cfg.MODEL.BACKBONE.BRANCH_EMBED,
             'cross_attn': cfg.MODEL.BACKBONE.CROSS_ATTN,
         }
 
@@ -469,6 +475,14 @@ class Twins(_Twins, Backbone):
             y, size_support = embed(y)
             y = drop(y)
 
+            # don't zip branch embed due to potential non-initialization
+            if self.branch_embed:
+                x_branch_embed = torch.zeros(x.shape[:-1], dtype=torch.long, device=x.device)
+                x = x + self.branch_embedding[i](x_branch_embed)
+
+                y_branch_embed = torch.ones(y.shape[:-1], dtype=torch.long, device=y.device)
+                y = y + self.branch_embedding[i](y_branch_embed)
+
             if i == 0 and "patch_embed" in self._out_features:
                 outputs["query"]["patch_embed"] = x.reshape(B_x, *size_query, -1).permute(0, 3, 1, 2).contiguous()
                 outputs["support"]["patch_embed"] = y.reshape(B_y, *size_support, -1).permute(0, 3, 1, 2).contiguous()
@@ -507,7 +521,7 @@ class Twins(_Twins, Backbone):
                 param.requires_grad = False
         
         # TODO: variable name: layer is not great
-        module_names = ["patch_embeds", "pos_drops", "blocks", "pos_block"]
+        module_names = ["patch_embeds", "pos_drops", "blocks", "pos_block", "branch_embedding"]
         for module_name in module_names:
             module = getattr(self, module_name)
             for idx in range(len(self.layer_names)):
@@ -517,3 +531,7 @@ class Twins(_Twins, Backbone):
                     if layer is not None:
                         for param in layer.parameters():
                             param.requires_grad = False
+
+                            if module_name == "branch_embedding":
+                                # Zero out the branch embeddings to avoid randomness
+                                param.data.fill_(0)
