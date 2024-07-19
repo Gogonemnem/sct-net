@@ -520,7 +520,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             for param in self.patch_embed.parameters():
                 param.requires_grad = False
         
-        module_names = ["downsample", "blocks", "norm"]
+        module_names = ["downsample", "blocks", "norm", "branch_embedding"]
         for idx, stage in enumerate(self.stages, start=2):
             if freeze_at >= idx:
                 for module_name in module_names:
@@ -531,26 +531,16 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
                     for param in module.parameters():
                         param.requires_grad = False
 
+                        if module_name == "branch_embedding"
+                            # Zero out the branch embeddings to avoid randomness
+                            param.data.fill_(0)
+
                     if not only_train_norm:
                         continue
 
                     for name, param in module.named_parameters():
                         if 'norm' in name:
                             param.requires_grad = True
-
-        module_names = ["branch_embedding"]
-        for idx, stage in enumerate(self.stages, start=2):
-            if freeze_at >= idx:
-                for module_name in module_names:
-                    module = getattr(stage, module_name, None)
-                    if module is None:
-                        continue
-
-                    for param in module.parameters():
-                        param.requires_grad = False
-                        
-                        # Zero out the branch embeddings to avoid randomness
-                        param.data.fill_(0)
 
 
 @BACKBONE_REGISTRY.register()
