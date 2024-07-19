@@ -454,6 +454,7 @@ class Twins(_Twins, Backbone):
             dict[str->Tensor]: names and the corresponding features
         """
         if y is None:
+            self.branch_embedding = None
             return self.forward_single(x)
 
         assert x.dim() == 4, f"Twins takes an input of query shape (N, C, H, W). Got {x.shape} instead!"

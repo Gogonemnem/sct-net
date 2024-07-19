@@ -285,6 +285,7 @@ class PyramidVisionTransformerStage(_PyramidVisionTransformerStage):
 
     def forward(self, x, y=None):
         if y is None:
+            self.branch_embedding = None
             return super().forward(x)
 
         if not self.cross_attn:
