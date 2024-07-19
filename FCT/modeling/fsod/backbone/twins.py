@@ -300,6 +300,7 @@ class Twins(_Twins, Backbone):
         freeze_at=0,
         branch_embed=True,
         cross_attn=(True, True, True, True),
+        two_branch=False,
         **kwargs,
     ):
         super().__init__(
@@ -339,7 +340,7 @@ class Twins(_Twins, Backbone):
             cur += depths[k]
 
         self.pos_block = nn.ModuleList([PosConv(embed_dim, embed_dim) for embed_dim in self.embed_dims])
-        if branch_embed:
+        if branch_embed and two_branch:
             self.branch_embedding = nn.ModuleList([nn.Embedding(2, embed_dim) for embed_dim in self.embed_dims])
         self.branch_embed = branch_embed
 
@@ -405,6 +406,7 @@ class Twins(_Twins, Backbone):
             'freeze_at': cfg.MODEL.BACKBONE.FREEZE_AT,
             'branch_embed': cfg.MODEL.BACKBONE.BRANCH_EMBED,
             'cross_attn': cfg.MODEL.BACKBONE.CROSS_ATTN,
+            'two_branch': cfg.INPUT.FS.ENABLED,
         }
 
     def forward_single(self, x: torch.Tensor):
@@ -524,7 +526,7 @@ class Twins(_Twins, Backbone):
         # TODO: variable name: layer is not great
         module_names = ["patch_embeds", "pos_drops", "blocks", "pos_block", "branch_embedding"]
         for module_name in module_names:
-            module = getattr(self, module_name)
+            module = getattr(self, module_name, None)
             for idx in range(len(self.layer_names)):
 
                 layer = module[idx]

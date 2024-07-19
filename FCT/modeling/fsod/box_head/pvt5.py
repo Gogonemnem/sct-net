@@ -28,6 +28,8 @@ class PVT5BoxHead(nn.Module):
         attn_drop_rate=0.,
         drop_path_rate=0.,
         norm_layer="LN",
+        branch_embed=True,
+        cross_attn=(True, True, True, True),
     ):
         super().__init__()
 
@@ -49,6 +51,8 @@ class PVT5BoxHead(nn.Module):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
+                branch_embed=branch_embed,
+                cross_attn=cross_attn[i],
             )
         self.feature_info = dict(num_chs=embed_dims[i], reduction=4 * 2**i, module=f'stages.{i}')
 
@@ -69,6 +73,8 @@ class PVT5BoxHead(nn.Module):
             "attn_drop_rate": cfg.MODEL.PVT.ATTN_DROP_RATE,
             "drop_path_rate": cfg.MODEL.PVT.DROP_PATH_RATE,
             "norm_layer": cfg.MODEL.PVT.NORM_LAYER,
+            "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED and cfg.INPUT.FS.ENABLED,
+            "cross_attn": cfg.MODEL.BACKBONE.CROSS_ATTN,
         }
 
     def forward(self, x, y=None):

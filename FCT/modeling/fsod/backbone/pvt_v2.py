@@ -348,6 +348,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             out_features=None,
             freeze_at=0,
             only_train_norm=False,
+            two_branch=False,
             branch_embed=True,
             cross_attn=(True, True, True, True),
             
@@ -386,7 +387,6 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
                 dim=prev_dim,
                 dim_out=embed_dims[i],
                 depth=depths[i],
-                branch_embed=branch_embed,
                 downsample=i > 0,
                 num_heads=num_heads[i],
                 sr_ratio=sr_ratios[i],
@@ -397,7 +397,8 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
-                cross_attn=cross_attn[i]
+                cross_attn=cross_attn[i],
+                branch_embed=branch_embed and two_branch,
             )
             self.stages.append(stage)
             prev_dim = embed_dims[i]
@@ -447,6 +448,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             "freeze_at": cfg.MODEL.BACKBONE.FREEZE_AT,
             "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED,
             "cross_attn": cfg.MODEL.BACKBONE.CROSS_ATTN,
+            "two_branch": cfg.INPUT.FS.ENABLED,
         }
 
     def forward_single(self, x):
@@ -524,14 +526,14 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
         for idx, stage in enumerate(self.stages, start=2):
             if freeze_at >= idx:
                 for module_name in module_names:
-                    module = getattr(stage, module_name)
+                    module = getattr(stage, module_name, None)
                     if module is None:
                         continue
 
                     for param in module.parameters():
                         param.requires_grad = False
 
-                        if module_name == "branch_embedding"
+                        if module_name == "branch_embedding":
                             # Zero out the branch embeddings to avoid randomness
                             param.data.fill_(0)
 
