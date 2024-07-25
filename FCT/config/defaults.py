@@ -21,8 +21,6 @@ _C.MODEL.PVT.PROJ_DROP_RATE = 0.0
 _C.MODEL.PVT.ATTN_DROP_RATE = 0.0
 _C.MODEL.PVT.DROP_PATH_RATE = 0.1
 _C.MODEL.PVT.NORM_LAYER = "LN"
-# _C.MODEL.PVT.OUT_FEATURES = ["pvt2", "pvt3", "pvt4"]
-# _C.MODEL.PVT.OUT_FEATURES = ["pvt3", "pvt4"]
 _C.MODEL.PVT.OUT_FEATURES = ["pvt4"]
 
 
@@ -98,6 +96,7 @@ _C.SOLVER.WEIGHT_DECAY_BIAS = _C.SOLVER.WEIGHT_DECAY  # None means following WEI
 # Misc options
 # ---------------------------------------------------------------------------- #
 _C.OUTPUT_DIR = "./output"
+_C.VIS_PERIOD = 20
 
 # ---------------------------------------------------------------------------- #
 # Additional Configs
