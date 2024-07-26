@@ -1,78 +1,55 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-"""
-Modified on Wednesday, September 28, 2022
-
-@author: Guangxing Han
-"""
-import logging
+import os
 from collections import defaultdict
+
+import pandas as pd
 import numpy as np
 import torch
-from torch import nn
 
+from detectron2.config import configurable
 from detectron2.data.detection_utils import convert_image_to_rgb
-from detectron2.structures import ImageList, Boxes, Instances
-from detectron2.utils.events import get_event_storage
-from detectron2.utils.logger import log_first_n
-
-from detectron2.modeling.backbone import build_backbone
-from detectron2.modeling.postprocessing import detector_postprocess
-from detectron2.modeling.proposal_generator import build_proposal_generator
-from detectron2.modeling.roi_heads import build_roi_heads
-from detectron2.modeling.meta_arch.build import META_ARCH_REGISTRY
-
-import torch.nn.functional as F
-
-from .fsod_fast_rcnn import FsodFastRCNNOutputLayers
-
-import os
-
-import matplotlib.pyplot as plt
-import pandas as pd
-
 from detectron2.data.catalog import MetadataCatalog
-import detectron2.data.detection_utils as utils
-import pickle
-import sys
+from detectron2.data import detection_utils as utils
+from detectron2.modeling.meta_arch import META_ARCH_REGISTRY, GeneralizedRCNN
+from detectron2.structures import ImageList, Boxes
+from detectron2.utils.events import get_event_storage
 
 __all__ = ["FsodRCNN"]
 
 
 @META_ARCH_REGISTRY.register()
-class FsodRCNN(nn.Module):
-    """
-    Generalized R-CNN. Any models that contains the following three components:
-    1. Per-image feature extraction (aka backbone)
-    2. Region proposal generation
-    3. Per-region feature extraction and prediction
-    """
+class FsodRCNN(GeneralizedRCNN):
+    @configurable
+    def __init__(
+        self,
+        support_way,
+        support_shot,
+        data_dir,
+        dataset,
+        **kwargs):
+        super().__init__(**kwargs)
 
-    def __init__(self, cfg):
-        super().__init__()
-
-        self.backbone = build_backbone(cfg)
-        self.proposal_generator = build_proposal_generator(cfg, self.backbone.output_shape())
-        self.roi_heads = build_roi_heads(cfg, self.backbone.output_shape())
-        self.vis_period = cfg.VIS_PERIOD
-        self.input_format = cfg.INPUT.FORMAT
-
-        assert len(cfg.MODEL.PIXEL_MEAN) == len(cfg.MODEL.PIXEL_STD)
-        self.register_buffer("pixel_mean", torch.Tensor(cfg.MODEL.PIXEL_MEAN).view(-1, 1, 1))
-        self.register_buffer("pixel_std", torch.Tensor(cfg.MODEL.PIXEL_STD).view(-1, 1, 1))
-
-        self.in_features              = cfg.MODEL.ROI_HEADS.IN_FEATURES
-
-        self.support_way = cfg.INPUT.FS.SUPPORT_WAY
-        self.support_shot = cfg.INPUT.FS.SUPPORT_SHOT
-        self.logger = logging.getLogger(__name__)
-        self.support_dir = cfg.OUTPUT_DIR
-        self.data_dir = cfg.DATA_DIR
-        self.dataset = cfg.DATASETS.TRAIN[0]
+        self.support_way = support_way
+        self.support_shot = support_shot
+        self.data_dir = data_dir
+        self.dataset = dataset
 
         self.evaluation_dataset = 'voc'
         self.evaluation_shot = 10
         self.keepclasses = 'all1'
         self.test_seeds = 0
+
+    @classmethod
+    def from_config(cls, cfg):
+        ret = super().from_config(cfg)
+        ret.update(
+            {
+                "support_way": cfg.INPUT.FS.SUPPORT_WAY,
+                "support_shot": cfg.INPUT.FS.SUPPORT_SHOT,
+                "data_dir": cfg.DATA_DIR,
+                "dataset": cfg.DATASETS.TRAIN[0],
+            }
+        )
+        return ret
 
     def init_support_features(self, evaluation_dataset, evaluation_shot, keepclasses, test_seeds):
         self.evaluation_dataset = evaluation_dataset
@@ -84,16 +61,12 @@ class FsodRCNN(nn.Module):
             self.init_model_voc()
         elif self.evaluation_dataset == 'coco':
             self.init_model_coco()
-
-    @property
-    def device(self):
-        return self.pixel_mean.device
-
-    def visualize_training(self, batched_inputs, proposals):
+    
+    def visualize_training(self, batched_inputs, proposals_dict):
         """
         A function used to visualize images and proposals. It shows ground truth
-        bounding boxes on the original image and up to 20 predicted object
-        proposals on the original image. Users can implement different
+        bounding boxes on the original image and up to 20 top-scoring predicted
+        object proposals on the original image. Users can implement different
         visualization functions for different models.
 
         Args:
@@ -106,23 +79,36 @@ class FsodRCNN(nn.Module):
         storage = get_event_storage()
         max_vis_prop = 20
 
-        for input, prop in zip(batched_inputs, proposals):
-            img = input["image"]
-            img = convert_image_to_rgb(img.permute(1, 2, 0), self.input_format)
-            v_gt = Visualizer(img, None)
-            v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
-            anno_img = v_gt.get_image()
+        input = batched_inputs[0] # only visualize one image in a batch
+        img = input["image"]
+        img = convert_image_to_rgb(img.permute(1, 2, 0), self.input_format)
+        v_gt = Visualizer(img, None)
+        v_gt = v_gt.overlay_instances(boxes=input["instances"].gt_boxes)
+        anno_img = v_gt.get_image()
+
+        imgs = [anno_img]
+        for proposals in proposals_dict.values():
+            prop = proposals[0] # only visualize one image in a batch
             box_size = min(len(prop.proposal_boxes), max_vis_prop)
             v_pred = Visualizer(img, None)
+
+            boxes = prop.proposal_boxes[0:box_size].tensor.cpu().numpy()
+
+            probs = torch.sigmoid(prop.objectness_logits[0:box_size]).cpu().numpy()
+            gt_classes = prop.gt_classes[0:box_size]
+            labels = [f"{prob:.2f}, {cls}" for prob, cls in zip(probs, gt_classes)]
+        
             v_pred = v_pred.overlay_instances(
-                boxes=prop.proposal_boxes[0:box_size].tensor.cpu().numpy()
+                boxes=boxes,
+                labels=labels,
             )
             prop_img = v_pred.get_image()
-            vis_img = np.concatenate((anno_img, prop_img), axis=1)
-            vis_img = vis_img.transpose(2, 0, 1)
-            vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
-            storage.put_image(vis_name, vis_img)
-            break  # only visualize one image in a batch
+            imgs.append(prop_img)
+        
+        vis_img = np.concatenate(imgs, axis=1)
+        vis_img = vis_img.transpose(2, 0, 1)
+        vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
+        storage.put_image(vis_name, vis_img)
 
     def forward(self, batched_inputs):
         """
@@ -212,6 +198,11 @@ class FsodRCNN(nn.Module):
                 proposals_dict,
                 query_gt_instances
                 )
+
+            if self.vis_period > 0 and i == 0:
+                storage = get_event_storage()
+                if storage.iter % self.vis_period == 0:
+                        self.visualize_training(batched_inputs, proposals_dict)
 
             for loss_type, value in detector_losses.items():
                 losses[loss_type] += value
@@ -386,19 +377,3 @@ class FsodRCNN(nn.Module):
         support_images = ImageList.from_tensors(support_images, self.backbone.size_divisibility)
 
         return images, support_images
-
-    @staticmethod
-    def _postprocess(instances, batched_inputs, image_sizes):
-        """
-        Rescale the output instances to the target size.
-        """
-        # note: private function; subject to changes
-        processed_results = []
-        for results_per_image, input_per_image, image_size in zip(
-            instances, batched_inputs, image_sizes
-        ):
-            height = input_per_image.get("height", image_size[0])
-            width = input_per_image.get("width", image_size[1])
-            r = detector_postprocess(results_per_image, height, width)
-            processed_results.append({"instances": r})
-        return processed_results
