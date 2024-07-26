@@ -10,13 +10,14 @@
 
 # ----------------- Configuration -----------------
 
-base_config_name="pvtv2-pvt5"
-few_shot_config_name="pvtv2-attentionrpn-pvt5"
+
+base_config_name="twinsv2-twins5"
+few_shot_config_name="twinsv2-attentionrpn-multirelation"
 dataset="dota"
 
-num_gpus=1
+num_gpus=8
 # effective_batch_size=8
-batch_size=1
+batch_size=8
 
 # Few-shot Finetuning (Two-branch)
 few_shot_iterations="10" # (1 2 3 5 10 30) -1

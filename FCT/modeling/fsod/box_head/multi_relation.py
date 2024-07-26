@@ -23,6 +23,7 @@ class MultiRelationBoxHead(nn.Module):
         input_size = input_shape.channels
         self._output_size = ShapeSpec(channels=input_size)
 
+
         self.global_relation = global_relation
         self.local_correlation = local_correlation
         self.patch_relation = patch_relation
@@ -52,7 +53,6 @@ class MultiRelationBoxHead(nn.Module):
             for l in [self.conv_1, self.conv_2, self.conv_3]:
                 nn.init.constant_(l.bias, 0)
                 nn.init.normal_(l.weight, std=0.01)
-
 
     @classmethod
     def from_config(cls, cfg, input_shape):
@@ -90,6 +90,7 @@ class MultiRelationBoxHead(nn.Module):
             x_pr = x_pr.mean(dim=(2, 3))
 
         return x_fc + x_cor + x_pr
+
 
     @property
     @torch.jit.unused

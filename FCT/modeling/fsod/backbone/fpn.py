@@ -34,10 +34,16 @@ class FPN(_FPN):
                     for param in module.parameters():
                         param.requires_grad = False
     
-    def forward(self, x, y):
-        x, y = self.bottom_up(x, y)
+    def forward(self, x, y=None):
+        if y is None:
+            x = self.bottom_up(x)
+        else:
+            x, y = self.bottom_up(x, y)
+            y = self._fpn_forward(y)
+
         x = self._fpn_forward(x)
-        y = self._fpn_forward(y)
+        if y is None:
+            return x
         return x, y
 
     def _fpn_forward(self, x):
