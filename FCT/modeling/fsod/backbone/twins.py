@@ -269,9 +269,9 @@ class Block(_Block):
                 super().forward(y, size_support)
             )
 
-        x, y = self.attn(self.norm1(x), size_query, self.norm1(y), size_support)
-        x = x + self.drop_path1(x)
-        y = y + self.drop_path2(y)
+        res_x, res_y = self.attn(self.norm1(x), size_query, self.norm1(y), size_support)
+        x = x + self.drop_path1(res_x)
+        y = y + self.drop_path2(res_y)
         x = x + self.drop_path2(self.mlp(self.norm2(x)))
         y = y + self.drop_path2(self.mlp(self.norm2(y)))
         return x, y

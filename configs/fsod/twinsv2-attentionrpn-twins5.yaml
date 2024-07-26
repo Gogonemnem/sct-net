@@ -1,0 +1,9 @@
+_BASE_: twinsv2-twins5.yaml
+MODEL:
+  BACKBONE: 
+    NAME: Twins
+  PROPOSAL_GENERATOR:
+    NAME: AttentionRPN
+  ROI_BOX_HEAD:
+    NAME: TwinsBoxHead
+VERSION: 2

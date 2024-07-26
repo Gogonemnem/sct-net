@@ -214,9 +214,9 @@ class Block(_Block):
         if y is None:
             return super().forward(x, feat_size_query)
 
-        x, y = self.attn(self.norm1(x), feat_size_query, self.norm1(y), feat_size_support)
-        x = x + self.drop_path1(x)
-        y = y + self.drop_path1(y)
+        res_x, res_y = self.attn(self.norm1(x), feat_size_query, self.norm1(y), feat_size_support)
+        x = x + self.drop_path1(res_x)
+        y = y + self.drop_path1(res_y)
 
         x = x + self.drop_path2(self.mlp(self.norm2(x), feat_size_query))
         y = y + self.drop_path2(self.mlp(self.norm2(y), feat_size_support))
@@ -554,8 +554,7 @@ def build_retinanet_pvtv2_fpn_backbone(cfg, input_shape: ShapeSpec):
     Returns:
         backbone (Backbone): backbone module, must be a subclass of :class:`Backbone`.
     """
-    pvt_args = PyramidVisionTransformerV2.from_config(cfg, input_shape)
-    bottom_up = PyramidVisionTransformerV2(**pvt_args)
+    bottom_up = BACKBONE_REGISTRY.get("PyramidVisionTransformerV2")(cfg, input_shape)
     in_features = cfg.MODEL.FPN.IN_FEATURES
     out_channels = cfg.MODEL.FPN.OUT_CHANNELS
     last_in_feature = in_features[-1]

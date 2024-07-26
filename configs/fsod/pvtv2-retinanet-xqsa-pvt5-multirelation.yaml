@@ -5,5 +5,5 @@ MODEL:
   PROPOSAL_GENERATOR:
     NAME: CrossScalesRPN
   ROI_BOX_HEAD:
-    NAME: FsodPVT5MultiRelationBoxHead
+    NAME: PVT5MultiRelationBoxHead
 VERSION: 2

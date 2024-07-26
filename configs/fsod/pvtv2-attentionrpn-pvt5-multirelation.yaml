@@ -5,5 +5,5 @@ MODEL:
   PROPOSAL_GENERATOR:
     NAME: AttentionRPN
   ROI_BOX_HEAD:
-    NAME: PVT5BoxHead
+    NAME: PVT5MultiRelationBoxHead
 VERSION: 2

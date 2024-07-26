@@ -72,7 +72,7 @@ class FsodFastRCNNOutputLayers(FastRCNNOutputLayers):
         n_instances_per_class = self.num_proposals
 
         # TODO: use configs to figure it out
-        background_ratio = 1
+        background_ratio = 2
         negative_ratio = 1
 
         fg_inds = (gt_classes == 0).nonzero().squeeze(-1)

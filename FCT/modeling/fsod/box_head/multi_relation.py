@@ -22,7 +22,8 @@ class MultiRelationBoxHead(nn.Module):
 
         input_size = input_shape.channels
         self._output_size = ShapeSpec(channels=input_size)
-        
+
+
         self.global_relation = global_relation
         self.local_correlation = local_correlation
         self.patch_relation = patch_relation
@@ -35,25 +36,24 @@ class MultiRelationBoxHead(nn.Module):
             for l in [self.fc_1, self.fc_2]:
                 nn.init.constant_(l.bias, 0)
                 nn.init.normal_(l.weight, std=0.01)
-        
+
         if local_correlation:
             self.conv_cor = nn.Conv2d(input_size, input_size, 1, padding=0)
-            
+
             for l in [self.conv_cor]:
                 nn.init.constant_(l.bias, 0)
                 nn.init.normal_(l.weight, std=0.01)
-        
+
         if patch_relation:
             self.avgpool = nn.AvgPool2d(kernel_size=3,stride=1)
             self.conv_1 = nn.Conv2d(input_size*2, int(input_size/4), 1, padding=0)
             self.conv_2 = nn.Conv2d(int(input_size/4), int(input_size/4), 3, padding=0)
             self.conv_3 = nn.Conv2d(int(input_size/4), input_size, 1, padding=0)
-            
+
             for l in [self.conv_1, self.conv_2, self.conv_3]:
                 nn.init.constant_(l.bias, 0)
                 nn.init.normal_(l.weight, std=0.01)
-        
-    
+
     @classmethod
     def from_config(cls, cfg, input_shape):
         return {
@@ -62,7 +62,7 @@ class MultiRelationBoxHead(nn.Module):
             "local_correlation": cfg.MODEL.MULTI_RELATION.LOCAL_CORRELATION,
             "patch_relation": cfg.MODEL.MULTI_RELATION.PATCH_RELATION,
         }
-    
+
     def forward(self, x_query, x_support):
         x_fc, x_cor, x_pr = 0, 0, 0
         # fc
@@ -90,7 +90,8 @@ class MultiRelationBoxHead(nn.Module):
             x_pr = x_pr.mean(dim=(2, 3))
 
         return x_fc + x_cor + x_pr
-    
+
+
     @property
     @torch.jit.unused
     def output_shape(self):

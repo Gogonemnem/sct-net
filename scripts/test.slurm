@@ -80,11 +80,10 @@ srun python3 train_net.py --config-file "$dataset_config" --resume \
 ### Fine-tuning (Two-branch)
 for i in "$few_shot_iterations"; do
     dataset_name="${dataset}_train2017_full_${i}shot"
-    
     datasets="('${dataset_name}',)"
     test_shots="('${i}',)"
     support_shot=$((i-1))
-    
+
     # Execute the training command with the adjusted dataset name
     srun python3 train_net.py --config-file "$dataset_config" --resume \
         --additional-configs configs/fsod/finetuning.yaml configs/fsod/${few_shot_config_name}.yaml\

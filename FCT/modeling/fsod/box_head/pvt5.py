@@ -1,13 +1,13 @@
+from functools import partial
+
 import torch
 from torch import nn
 
 from detectron2.config import configurable
 from detectron2.layers import ShapeSpec
 from detectron2.modeling.roi_heads.box_head import ROI_BOX_HEAD_REGISTRY
-from ..backbone.pvt_v2 import PyramidVisionTransformerStage
 
-from ..backbone.pvt_v2 import get_norm
-from functools import partial
+from ..backbone.pvt_v2 import PyramidVisionTransformerStage, get_norm
 
 
 @ROI_BOX_HEAD_REGISTRY.register()
@@ -96,7 +96,7 @@ class PVT5BoxHead(nn.Module):
 # TODO: keys are now reusable, but is a bit hacky.
 # Is it even "good" to have both pvt4 and multi_relation in the same head?
 @ROI_BOX_HEAD_REGISTRY.register()
-class FsodPVT5MultiRelationBoxHead(nn.Module):
+class PVT5MultiRelationBoxHead(nn.Module):
     @configurable
     def __init__(self, pvt4_stage, multi_relation):
         super().__init__()
@@ -105,10 +105,10 @@ class FsodPVT5MultiRelationBoxHead(nn.Module):
 
     @classmethod
     def from_config(cls, cfg, input_shape):
-        pvt4_box_head = ROI_BOX_HEAD_REGISTRY.get("FsodPVT4BoxHead")(cfg, input_shape)
-        multi_relation = ROI_BOX_HEAD_REGISTRY.get("MultiRelationBoxHead")(cfg, pvt4_box_head.output_shape)
+        pvt_box_head = ROI_BOX_HEAD_REGISTRY.get("PVT5BoxHead")(cfg, input_shape)
+        multi_relation = ROI_BOX_HEAD_REGISTRY.get("MultiRelationBoxHead")(cfg, pvt_box_head.output_shape)
         return {
-            "pvt4_stage": pvt4_box_head.stage,
+            "pvt4_stage": pvt_box_head.stage,
             "multi_relation": multi_relation,
         }
 

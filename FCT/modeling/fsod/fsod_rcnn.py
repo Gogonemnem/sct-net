@@ -23,7 +23,6 @@ class FsodRCNN(GeneralizedRCNN):
         self,
         support_way,
         support_shot,
-        support_dir,
         data_dir,
         dataset,
         **kwargs):
@@ -31,7 +30,6 @@ class FsodRCNN(GeneralizedRCNN):
 
         self.support_way = support_way
         self.support_shot = support_shot
-        self.support_dir = support_dir
         self.data_dir = data_dir
         self.dataset = dataset
 
@@ -47,7 +45,6 @@ class FsodRCNN(GeneralizedRCNN):
             {
                 "support_way": cfg.INPUT.FS.SUPPORT_WAY,
                 "support_shot": cfg.INPUT.FS.SUPPORT_SHOT,
-                "support_dir": cfg.OUTPUT_DIR,
                 "data_dir": cfg.DATA_DIR,
                 "dataset": cfg.DATASETS.TRAIN[0],
             }

@@ -2,7 +2,10 @@ import math
 
 from torch.nn import functional as F
 
-from detectron2.modeling.backbone.fpn import FPN as _FPN
+from detectron2.layers import ShapeSpec
+from detectron2.modeling.backbone.build import BACKBONE_REGISTRY
+from detectron2.modeling.backbone.fpn import FPN as _FPN, LastLevelP6P7
+from detectron2.config import configurable
 
 
 class FPN(_FPN):
