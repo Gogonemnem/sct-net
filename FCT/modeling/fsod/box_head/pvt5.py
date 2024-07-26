@@ -1,18 +1,15 @@
+from functools import partial
+
 import torch
 from torch import nn
 
 from detectron2.config import configurable
 from detectron2.layers import ShapeSpec
 from detectron2.modeling.roi_heads.box_head import ROI_BOX_HEAD_REGISTRY
-from ..backbone.pvt_v2 import PyramidVisionTransformerStage
 
-from ..backbone.pvt_v2 import get_norm
-from functools import partial
+from ..backbone.pvt_v2 import PyramidVisionTransformerStage, get_norm
 
 
-# To get torchscript support, we make the head a subclass of `nn.Module`.
-# Therefore, to add new layers in this head class, please make sure they are
-# added in the order they will be used in forward().
 @ROI_BOX_HEAD_REGISTRY.register()
 class PVT5BoxHead(nn.Module):
     @configurable
@@ -31,6 +28,8 @@ class PVT5BoxHead(nn.Module):
         attn_drop_rate=0.,
         drop_path_rate=0.,
         norm_layer="LN",
+        branch_embed=True,
+        cross_attn=(True, True, True, True),
     ):
         super().__init__()
 
@@ -52,6 +51,8 @@ class PVT5BoxHead(nn.Module):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
+                branch_embed=branch_embed,
+                cross_attn=cross_attn[i],
             )
         self.feature_info = dict(num_chs=embed_dims[i], reduction=4 * 2**i, module=f'stages.{i}')
 
@@ -72,11 +73,12 @@ class PVT5BoxHead(nn.Module):
             "attn_drop_rate": cfg.MODEL.PVT.ATTN_DROP_RATE,
             "drop_path_rate": cfg.MODEL.PVT.DROP_PATH_RATE,
             "norm_layer": cfg.MODEL.PVT.NORM_LAYER,
+            "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED and cfg.INPUT.FS.ENABLED,
+            "cross_attn": cfg.MODEL.BACKBONE.CROSS_ATTN,
         }
 
-    def forward(self, x):
-        x = self.stage(x)
-        return x
+    def forward(self, x, y=None):
+        return self.stage(x, y)
 
     @property
     @torch.jit.unused
@@ -90,3 +92,35 @@ class PVT5BoxHead(nn.Module):
             return ShapeSpec(channels=o)
         else:
             return o
+        
+# TODO: keys are now reusable, but is a bit hacky.
+# Is it even "good" to have both pvt4 and multi_relation in the same head?
+@ROI_BOX_HEAD_REGISTRY.register()
+class PVT5MultiRelationBoxHead(nn.Module):
+    @configurable
+    def __init__(self, pvt4_stage, multi_relation):
+        super().__init__()
+        self.stage = pvt4_stage
+        self.multi_relation = multi_relation
+
+    @classmethod
+    def from_config(cls, cfg, input_shape):
+        pvt_box_head = ROI_BOX_HEAD_REGISTRY.get("PVT5BoxHead")(cfg, input_shape)
+        multi_relation = ROI_BOX_HEAD_REGISTRY.get("MultiRelationBoxHead")(cfg, pvt_box_head.output_shape)
+        return {
+            "pvt4_stage": pvt_box_head.stage,
+            "multi_relation": multi_relation,
+        }
+
+    def forward(self, x, y):
+        x, y = self.stage(x, y)
+        return self.multi_relation(x, y)
+    
+    @property
+    @torch.jit.unused
+    def output_shape(self):
+        """
+        Returns:
+            ShapeSpec: the output feature shape
+        """
+        return self.multi_relation._output_size
