@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=10
 ##SBATCH --partition=gpu_p2s
 #SBATCH --hint=nomultithread
-#SBATCH --time=2:00:00
+#SBATCH --time=0:30:00
 #SBATCH --qos=qos_gpu-dev
 #SBATCH --account=uio@v100
 
@@ -33,7 +33,7 @@ dataset=${dataset:-dota}
 base_config_name=${base_config_name:-pvt_v2/pvtv2-pvt5}
 few_shot_config_name=${few_shot_config_name:-pvt_v2/pvtv2-attentionrpn-pvt5}
 num_gpus=${num_gpus:-8}
-batch_size=${batch_size:-8}
+batch_size=${batch_size:-2}
 few_shot_iterations=${few_shot_iterations:-"10"} # "1 2 3 5 10 3-"
 stages=${stages:-"single-branch,two-branch,fine-tuning"}
 
