@@ -21,7 +21,6 @@ _C.MODEL.PVT.PROJ_DROP_RATE = 0.0
 _C.MODEL.PVT.ATTN_DROP_RATE = 0.0
 _C.MODEL.PVT.DROP_PATH_RATE = 0.1
 _C.MODEL.PVT.NORM_LAYER = "LN"
-_C.MODEL.PVT.OUT_FEATURES = ["pvt4"]
 
 
 # ---------------------------------------------------------------------------- #
@@ -45,7 +44,6 @@ _C.MODEL.SWIN.DROP_PATH_RATE = 0.1
 _C.MODEL.SWIN.ACT_LAYER = 'gelu'
 _C.MODEL.SWIN.NORM_LAYER = "LN"
 _C.MODEL.SWIN.PRETRAINED_WINDOW_SIZES = [0, 0, 0, 0]
-_C.MODEL.SWIN.OUT_FEATURES = ["stage4"]
 
 # ---------------------------------------------------------------------------- #
 # Twins options
@@ -66,7 +64,6 @@ _C.MODEL.TWINS.PROJ_DROP_RATE = 0.0
 _C.MODEL.TWINS.ATTN_DROP_RATE = 0.0
 _C.MODEL.TWINS.DROP_PATH_RATE = 0.0
 # _C.MODEL.TWINS.NORM_LAYER = "LN"
-_C.MODEL.TWINS.OUT_FEATURES = ["stage4"]
 
 # ---------------------------------------------------------------------------- #
 # RPN options
@@ -124,6 +121,7 @@ _C.DATASETS.SEEDS = 0
 _C.MODEL.BACKBONE.ONLY_TRAIN_NORM = False
 _C.MODEL.BACKBONE.BRANCH_EMBED = True
 _C.MODEL.BACKBONE.CROSS_ATTN = (True, True, True, True)
+_C.MODEL.BACKBONE.OUT_FEATURES = ["c4"]
 _C.MODEL.RPN.FREEZE_RPN = False
 _C.MODEL.ROI_HEADS.FREEZE_ROI_FEATURE_EXTRACTOR = False
 _C.MODEL.ROI_HEADS.ONLY_TRAIN_NORM = False

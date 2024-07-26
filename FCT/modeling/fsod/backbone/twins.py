@@ -350,7 +350,7 @@ class Twins(_Twins, Backbone):
         if out_features is not None:
             # Avoid keeping unused layers in this module. They consume extra memory
             # and may cause allreduce to fail
-            stage_names = {f"stage{idx+1}": idx for idx in range(1, len(self.blocks) + 1)}
+            stage_names = {f"c{idx+1}": idx for idx in range(1, len(self.blocks) + 1)}
             num_layers = max(
                 [stage_names.get(f, 0) for f in out_features]
             )
@@ -365,7 +365,7 @@ class Twins(_Twins, Backbone):
         else:
             num_layers = len(self.blocks)
         
-        self.layer_names = tuple(["stage" + str(i + 2) for i in range(num_layers)])
+        self.layer_names = tuple(["c" + str(i + 2) for i in range(num_layers)])
         self._out_feature_strides.update({name: patch_size * (2 ** i) for i, name in enumerate(self.layer_names)})
         self._out_feature_channels.update({name: self.embed_dims[i] for i, name in enumerate(self.layer_names)})
 
@@ -373,7 +373,7 @@ class Twins(_Twins, Backbone):
             if num_classes is not None:
                 out_features = ["linear"]
             else:
-                out_features = ["stage" + str(num_layers)]
+                out_features = ["c" + str(num_layers)]
         self._out_features = out_features
         assert len(self._out_features)
 
@@ -402,7 +402,7 @@ class Twins(_Twins, Backbone):
             'drop_path_rate': cfg.MODEL.TWINS.DROP_PATH_RATE,
             'norm_layer': nn.LayerNorm, # we allow just one norm class for now,
             'block_cls': Block, # we allow just one block class for now,
-            'out_features': cfg.MODEL.TWINS.OUT_FEATURES,
+            'out_features': cfg.MODEL.BACKBONE.OUT_FEATURES,
             'freeze_at': cfg.MODEL.BACKBONE.FREEZE_AT,
             'branch_embed': cfg.MODEL.BACKBONE.BRANCH_EMBED,
             'cross_attn': cfg.MODEL.BACKBONE.CROSS_ATTN,
@@ -436,7 +436,7 @@ class Twins(_Twins, Backbone):
                 if j == 0:
                     x = pos_blk(x, size)  # PEG here
             
-            if name == 'stage5': # last stage
+            if name == 'c5': # last stage
                 x = self.norm(x)
                 if self.num_classes and "linear" in self._out_features:
                     outputs["linear"] = self.forward_head(x)
@@ -497,7 +497,7 @@ class Twins(_Twins, Backbone):
                     x = pos_blk(x, size_query)  # PEG here
                     y = pos_blk(y, size_support)
             
-            if name == 'stage5': # last stage
+            if name == 'c5': # last stage
                 x = self.norm(x)
                 if self.num_classes and "linear" in self._out_features:
                     outputs["query"]["linear"] = self.forward_head(x)

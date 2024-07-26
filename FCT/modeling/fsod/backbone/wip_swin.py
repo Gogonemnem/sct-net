@@ -382,7 +382,7 @@
 #             "act_layer": cfg.MODEL.SWIN.ACT_LAYER,
 #             "norm_layer": cfg.MODEL.SWIN.NORM_LAYER,
 #             "pretrained_window_sizes": cfg.MODEL.SWIN.PRETRAINED_WINDOW_SIZES,
-#             "out_features": cfg.MODEL.SWIN.OUT_FEATURES,
+#             "out_features": cfg.MODEL.BACKBONE.OUT_FEATURES,
 #             "freeze_at": cfg.MODEL.BACKBONE.FREEZE_AT,
 #         }
     

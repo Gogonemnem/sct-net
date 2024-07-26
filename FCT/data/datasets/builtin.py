@@ -236,7 +236,7 @@ def register_all(root, dataset_name):
         )
 
 # Register them all under "./datasets"
-root_dir = "/gpfsscratch/rech/uio/urr97zp/" # CHANGE THIS
+root_dir = "./" # CHANGE THIS
 _root = os.getenv("DETECTRON2_DOTA", root_dir + "datasets/data/dota")
 register_all(_root, "dota")
 _root = os.getenv("DETECTRON2_DIOR", root_dir + "datasets/data/dior")

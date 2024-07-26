@@ -1,0 +1,12 @@
+MODEL:
+  WEIGHTS: ./weights/twins_svt_small.pth
+  BACKBONE:
+    NAME: Twins
+    OUT_FEATURES: [c4]
+  RPN:
+    IN_FEATURES: [c4]
+  ROI_HEADS:
+    IN_FEATURES: [c4]
+  ROI_BOX_HEAD:
+    NAME: TwinsBoxHead
+VERSION: 2

@@ -2,7 +2,7 @@ MODEL:
   ROI_HEADS:
     NAME: StandardROIHeads
   RPN:
-    HEAD_NAME: "StandardRPNHead"
+    HEAD_NAME: StandardRPNHead
 SOLVER:
   IMS_PER_BATCH: 8
   BASE_LR: 0.0002

@@ -1,7 +1,5 @@
 _BASE_: pvtv2-retinanet.yaml
 MODEL:
-  BACKBONE: 
-    NAME: build_retinanet_pvtv2_fpn_backbone
   PROPOSAL_GENERATOR:
     NAME: AttentionRPN
   ROI_BOX_HEAD:

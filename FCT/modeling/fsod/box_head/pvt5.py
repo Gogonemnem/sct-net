@@ -98,9 +98,9 @@ class PVT5BoxHead(nn.Module):
 @ROI_BOX_HEAD_REGISTRY.register()
 class PVT5MultiRelationBoxHead(nn.Module):
     @configurable
-    def __init__(self, pvt4_stage, multi_relation):
+    def __init__(self, pvt_stage, multi_relation):
         super().__init__()
-        self.stage = pvt4_stage
+        self.stage = pvt_stage
         self.multi_relation = multi_relation
 
     @classmethod
@@ -108,7 +108,7 @@ class PVT5MultiRelationBoxHead(nn.Module):
         pvt_box_head = ROI_BOX_HEAD_REGISTRY.get("PVT5BoxHead")(cfg, input_shape)
         multi_relation = ROI_BOX_HEAD_REGISTRY.get("MultiRelationBoxHead")(cfg, pvt_box_head.output_shape)
         return {
-            "pvt4_stage": pvt_box_head.stage,
+            "pvt_stage": pvt_box_head.stage,
             "multi_relation": multi_relation,
         }
 

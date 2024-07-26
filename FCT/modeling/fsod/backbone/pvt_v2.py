@@ -409,10 +409,10 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             # Avoid keeping unused layers in this module. They consume extra memory
             # and may cause allreduce to fail
             num_stages = max(
-                [{"pvt2": 1, "pvt3": 2, "pvt4": 3, "pvt5": 4}.get(f, 0) for f in out_features]
+                [{"c2": 1, "c3": 2, "c4": 3, "c5": 4}.get(f, 0) for f in out_features]
             )
             self.stages = self.stages[:num_stages]
-        self.stage_names = tuple(["pvt" + str(i + 2) for i in range(num_stages)])
+        self.stage_names = tuple(["c" + str(i + 2) for i in range(num_stages)])
         self._out_feature_strides.update({name: 2 ** (i + 2) for i, name in enumerate(self.stage_names)})
         self._out_feature_channels.update({name: embed_dims[i] for i, name in enumerate(self.stage_names)})
         
@@ -420,7 +420,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             if num_classes is not None:
                 out_features = ["linear"]
             else:
-                out_features = ["pvt" + str(num_stages + 1)]
+                out_features = ["c" + str(num_stages + 1)]
         self._out_features = out_features
         assert len(self._out_features)
 
@@ -443,7 +443,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             "drop_path_rate": cfg.MODEL.PVT.DROP_PATH_RATE,
             "proj_drop_rate": cfg.MODEL.PVT.PROJ_DROP_RATE,
             "norm_layer": cfg.MODEL.PVT.NORM_LAYER,
-            "out_features": cfg.MODEL.PVT.OUT_FEATURES,
+            "out_features": cfg.MODEL.BACKBONE.OUT_FEATURES,
             "only_train_norm": cfg.MODEL.BACKBONE.ONLY_TRAIN_NORM,
             "freeze_at": cfg.MODEL.BACKBONE.FREEZE_AT,
             "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED,

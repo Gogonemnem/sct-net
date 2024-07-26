@@ -1,0 +1,5 @@
+_BASE_: finetuning.yaml
+MODEL:
+  BACKBONE:
+    FREEZE_AT: 5
+VERSION: 2

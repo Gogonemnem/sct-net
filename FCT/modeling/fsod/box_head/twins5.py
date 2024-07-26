@@ -28,7 +28,7 @@ class TwinsBoxHead(Twins):
     @classmethod
     def from_config(cls, cfg, input_shape):
         ret = super().from_config(cfg, input_shape)
-        ret['out_features'] = ['stage5']
+        ret['out_features'] = ['c5']
         ret['freeze_at'] = 0
 
         ret['input_shape'] = input_shape

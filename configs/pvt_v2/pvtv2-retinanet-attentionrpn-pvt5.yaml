@@ -1,0 +1,5 @@
+_BASE_: pvtv2-retinanet-pvt5.yaml
+MODEL:
+  PROPOSAL_GENERATOR:
+    NAME: AttentionRPN
+VERSION: 2

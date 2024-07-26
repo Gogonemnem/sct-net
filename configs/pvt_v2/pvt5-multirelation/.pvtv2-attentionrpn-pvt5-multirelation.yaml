@@ -1,9 +1,7 @@
 _BASE_: pvtv2-pvt5.yaml
 MODEL:
-  BACKBONE: 
-    NAME: PyramidVisionTransformerV2
   PROPOSAL_GENERATOR:
     NAME: AttentionRPN
   ROI_BOX_HEAD:
-    NAME: PVT5BoxHead
+    NAME: PVT5MultiRelationBoxHead
 VERSION: 2

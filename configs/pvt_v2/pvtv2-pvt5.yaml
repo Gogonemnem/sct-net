@@ -1,0 +1,12 @@
+MODEL:
+  WEIGHTS: ./weights/pvt_v2_b2_li.pth
+  BACKBONE:
+    NAME: PyramidVisionTransformerV2
+    OUT_FEATURES: [c4]
+  RPN:
+    IN_FEATURES: [c4]
+  ROI_HEADS:
+    IN_FEATURES: [c4]
+  ROI_BOX_HEAD:
+    NAME: PVT5BoxHead
+VERSION: 2

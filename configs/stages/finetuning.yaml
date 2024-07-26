@@ -1,7 +1,7 @@
-_BASE_: "training.yaml"
+_BASE_: training.yaml
 MODEL:
   BACKBONE:
-    FREEZE_AT: 5
+    FREEZE_AT: 4
 SOLVER:
   IMS_PER_BATCH: 8
   BASE_LR: 0.0002

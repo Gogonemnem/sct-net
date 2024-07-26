@@ -1,6 +1,6 @@
-_BASE_: "pretraining.yaml"
+_BASE_: pretraining.yaml
 MODEL:
-  META_ARCHITECTURE: "FsodRCNN"
+  META_ARCHITECTURE: FsodRCNN
   BACKBONE:
     FREEZE_AT: 3
   RPN:
@@ -11,7 +11,7 @@ MODEL:
     # POST_NMS_TOPK_TRAIN: 2000
     # POST_NMS_TOPK_TEST: 1000
   ROI_HEADS:
-    NAME: "FsodStandardROIHeads"
+    NAME: FsodStandardROIHeads
     BATCH_SIZE_PER_IMAGE: 128
     NUM_CLASSES: 1
     SCORE_THRESH_TEST: 0.0

@@ -1,0 +1,7 @@
+_BASE_: twinsv2-twins5.yaml
+MODEL:
+  PROPOSAL_GENERATOR:
+    NAME: AttentionRPN
+  ROI_BOX_HEAD:
+    NAME: MultiRelationBoxHead
+VERSION: 2
