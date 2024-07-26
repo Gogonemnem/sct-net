@@ -196,7 +196,7 @@ class FsodPVT5MultiRelationBoxHead(nn.Module):
 
     @classmethod
     def from_config(cls, cfg, input_shape):
-        pvt4_box_head = ROI_BOX_HEAD_REGISTRY.get("FsodPVT4BoxHead")(cfg, input_shape)
+        pvt4_box_head = ROI_BOX_HEAD_REGISTRY.get("FsodPVT5BoxHead")(cfg, input_shape)
         multi_relation = ROI_BOX_HEAD_REGISTRY.get("MultiRelationBoxHead")(cfg, pvt4_box_head.output_shape)
         return {
             "pvt4_stage": pvt4_box_head.stage,
