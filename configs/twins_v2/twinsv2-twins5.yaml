@@ -1,5 +1,5 @@
 MODEL:
-  WEIGHTS: ./weights/twins_svt_small.pth
+  WEIGHTS: ./weights/twins_svt_small_c4.pth
   BACKBONE:
     NAME: Twins
     OUT_FEATURES: [c4]

@@ -1,5 +1,5 @@
 MODEL:
-  WEIGHTS: ./weights/pvt_v2_b2_li.pth
+  WEIGHTS: ./weights/pvt_v2_b2_li_c4.pth
   BACKBONE:
     NAME: PyramidVisionTransformerV2
     OUT_FEATURES: [c4]

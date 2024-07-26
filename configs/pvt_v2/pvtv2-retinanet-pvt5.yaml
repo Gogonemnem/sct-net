@@ -1,5 +1,5 @@
 MODEL:
-  WEIGHTS: ./weights/pvt_v2_b2_li_fpn.pth
+  WEIGHTS: ./weights/pvt_v2_b2_li_fpn_c4.pth
   BACKBONE:
     NAME: build_retinanet_pvtv2_fpn_backbone
     OUT_FEATURES: [c3, c4]
