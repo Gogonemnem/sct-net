@@ -1,18 +1,41 @@
 #!/bin/bash
-#SBATCH --job-name=training_fct
+#SBATCH --job-name=training
 #SBATCH --output=log/%x_%j.out
 ##SBATCH -C v100-32g
 #SBATCH --error=log/%x_%j.err
-#SBATCH --nodes=2
-#SBATCH --ntasks-per-node=4
-#SBATCH --gres=gpu:4
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=2
+#SBATCH --gres=gpu:2
 #SBATCH --cpus-per-task=10
 ##SBATCH --partition=gpu_p2s
 #SBATCH --hint=nomultithread
-#SBATCH --time=20:00:00
-#SBATCH --qos=qos_gpu-t3
+#SBATCH --time=2:00:00
+#SBATCH --qos=qos_gpu-dev
 #SBATCH --account=uio@v100
 
+# Parse command-line arguments
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --dataset) dataset="$2"; shift ;;
+        --base-config) base_config_name="$2"; shift ;;
+        --few-shot-config) few_shot_config_name="$2"; shift ;;
+        --batch-size) batch_size="$2"; shift ;;
+        --few-shot-iterations) few_shot_iterations="$2"; shift ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+# Set default values if not provided
+dataset=${dataset:-dior}
+base_config_name=${base_config_name:-pvtv2-pvt5}
+few_shot_config_name=${few_shot_config_name:-pvtv2-attentionrpn-pvt5}
+batch_size=${batch_size:-8}
+few_shot_iterations=${few_shot_iterations:-"10"} # "1 2 3 5 10 3-"
+
+job_name="${dataset}_${base_config_name}_${few_shot_config_name}"
+
+echo "Job name: ${job_name}"
 
 # Cleans out modules loaded in interactive and inherited by default
 # module purge
@@ -29,15 +52,7 @@ cd /gpfswork/rech/uio/urr97zp/fsod-fct
 # Echo of launched commands
 set -x
 
-# Your script
-base_config_name="pvtv2-retinanet"
-few_shot_config_name="pvtv2-retinanet-xqsa-multirelation"
-dataset="dota"
 
-batch_size=8
-
-# Few-shot Finetuning (Two-branch)
-few_shot_iterations="10" # (1 2 3 5 10 3-)
 
 # ------------ Automatic Configuration ------------
 # accumulation_steps=$((effective_batch_size / batch_size))
@@ -45,31 +60,31 @@ dataset_config="configs/fsod/${dataset}.yaml"
 
 export TORCH_DISTRIBUTED_DEBUG=DETAIL
 # ----------------- Training -----------------
-# ### Pretraining (Single-Branch) 
-srun python3 train_net.py --config-file "$dataset_config" --resume \
-    --additional-configs configs/fsod/pretraining.yaml configs/fsod/${base_config_name}.yaml\
-        -- SOLVER.IMS_PER_BATCH $batch_size \
-        OUTPUT_DIR output/${dataset}/${base_config_name}/pretraining/ \
-        # SOLVER.ACCUMULATION_STEPS $accumulation_steps \
-        2>&1 | tee "logs/pretraining-${base_config_name}.txt"
+# ## Pretraining (Single-Branch) 
+# srun python3 train_net.py --config-file "$dataset_config" --resume \
+#     --additional-configs configs/fsod/pretraining.yaml configs/fsod/${base_config_name}.yaml\
+#         -- SOLVER.IMS_PER_BATCH $batch_size \
+#         OUTPUT_DIR output/${dataset}/${base_config_name}/pretraining/ \
+#         # SOLVER.ACCUMULATION_STEPS $accumulation_steps \
+#         2>&1 | tee "logs/pretraining-${base_config_name}.txt"
 
 ### Training (Two-branch) --eval-only 
 srun python3 train_net.py --config-file "$dataset_config" --resume \
     --additional-configs configs/fsod/training.yaml configs/fsod/${few_shot_config_name}.yaml\
         -- SOLVER.IMS_PER_BATCH $batch_size \
         OUTPUT_DIR output/${dataset}/${few_shot_config_name}/training/ \
-        MODEL.WEIGHTS output/${dataset}/${base_config_name}/pretraining/model_final.pth \
+        # MODEL.WEIGHTS output/${dataset}/${base_config_name}/pretraining/model_final.pth \
         # SOLVER.ACCUMULATION_STEPS $accumulation_steps \
         2>&1 | tee "logs/training-${config_name}.txt"
 
 ### Fine-tuning (Two-branch)
 for i in "$few_shot_iterations"; do
     dataset_name="${dataset}_train2017_full_${i}shot"
-    
+
     datasets="('${dataset_name}',)"
     test_shots="('${i}',)"
     support_shot=$((i-1))
-    
+
     # Execute the training command with the adjusted dataset name
     srun python3 train_net.py --config-file "$dataset_config" --resume \
         --additional-configs configs/fsod/finetuning.yaml configs/fsod/${few_shot_config_name}.yaml\
