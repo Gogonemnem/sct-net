@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=10
 ##SBATCH --partition=gpu_p2s
 #SBATCH --hint=nomultithread
-#SBATCH --time=0:30:00
+#SBATCH --time=2:00:00
 #SBATCH --qos=qos_gpu-dev
 #SBATCH --account=uio@v100
 
@@ -65,7 +65,7 @@ pretraining_config="configs/stages/pretraining.yaml"
 training_config="configs/stages/training.yaml"
 
 if [[ "$base_config_name" == *"retinanet"* && "$base_config_name" != *"5"* ]]; then
-    finetuning_config="configs/stages/finetuning_retinanet.yaml"
+    finetuning_config="configs/stages/finetuning-retinanet.yaml"
 else
     finetuning_config="configs/stages/finetuning.yaml"
 fi

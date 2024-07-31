@@ -65,7 +65,7 @@ pretraining_config="configs/stages/pretraining.yaml"
 training_config="configs/stages/training.yaml"
 
 if [[ "$base_config_name" == *"retinanet"* && "$base_config_name" != *"5"* ]]; then
-    finetuning_config="configs/stages/finetuning_retinanet.yaml"
+    finetuning_config="configs/stages/finetuning-retinanet.yaml"
 else
     finetuning_config="configs/stages/finetuning.yaml"
 fi
