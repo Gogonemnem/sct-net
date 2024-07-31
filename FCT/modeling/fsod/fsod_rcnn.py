@@ -283,7 +283,7 @@ class FsodRCNN(GeneralizedRCNN):
                 support_box_all = []
 
                 for index, support_img_df in support_cls_df.iterrows():
-                    img_path = os.path.join(self.data_dir, 'coco', support_img_df['file_path'])
+                    img_path = os.path.join(self.data_dir, support_img_df['file_path'])
                     support_data = utils.read_image(img_path, format='BGR')
                     support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
                     support_data_all.append(support_data)
