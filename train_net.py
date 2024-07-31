@@ -133,12 +133,12 @@ class FsodTrainer(Trainer):
                 test_keepclasses = cfg.DATASETS.TEST_KEEPCLASSES
             else:
                 evaluation_dataset = 'coco'
-                coco_test_shots_set = set([10,])##1,2,3,5,, 30
+                coco_test_shots_set = set([1,2,3,5,10,30])
                 test_shots_join = cur_test_shots_set.intersection(coco_test_shots_set)
                 test_keepclasses = cfg.DATASETS.TEST_KEEPCLASSES
 
             if cfg.INPUT.FS.FEW_SHOT:
-                test_shots = [cfg.INPUT.FS.SUPPORT_SHOT]
+                test_shots = [cfg.INPUT.FS.SUPPORT_SHOT + 1] # add one due to few shot: query + k-1 support
                 test_shots_join = set(test_shots)
 
             print("================== test_shots_join=", test_shots_join)
