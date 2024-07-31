@@ -92,6 +92,7 @@ for stage in "${STAGES_ARRAY[@]}"; do
                 -- SOLVER.IMS_PER_BATCH $batch_size \
                 OUTPUT_DIR output/${dataset}/${few_shot_config_name}/training/ \
                 MODEL.WEIGHTS output/${dataset}/${base_config_name}/pretraining/model_final.pth \
+                DATASETS.TEST_SHOTS 10 \
                 # SOLVER.ACCUMULATION_STEPS $accumulation_steps \
                 2>&1 | tee "logs/training-${config_name}.txt"
     fi
