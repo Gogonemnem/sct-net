@@ -248,8 +248,8 @@ class DatasetMapperWithSupportCOCO:
 
             support_db = self.support_df.loc[self.support_df['id'] == support_id, :]
             assert support_db['id'].values[0] == support_id
-            
-            support_data = utils.read_image(support_db["file_path"].tolist()[0], format=self.img_format) ##'./datasets/coco/' +
+            file_path = os.path.join(self.data_dir, support_db["file_path"].tolist()[0])
+            support_data = utils.read_image(file_path, format=self.img_format) ##'./datasets/coco/' +
             support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
             support_box = support_db['support_box'].tolist()[0]
             #print(support_data)
@@ -282,7 +282,8 @@ class DatasetMapperWithSupportCOCO:
                     support_db = self.support_df.loc[self.support_df['id'] == support_id, :]
                     assert support_db['id'].values[0] == support_id
 
-                    support_data = utils.read_image(support_db["file_path"].tolist()[0], format=self.img_format)    ##'./datasets/coco/' + 
+                    file_path = os.path.join(self.data_dir, support_db["file_path"].tolist()[0])
+                    support_data = utils.read_image(file_path, format=self.img_format) ##'./datasets/coco/' +
                     support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
                     support_box = support_db['support_box'].tolist()[0]
                     support_data_all[mixup_i] = support_data
