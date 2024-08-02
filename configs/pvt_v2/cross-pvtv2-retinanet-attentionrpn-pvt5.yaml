@@ -1,7 +1,5 @@
 _BASE_: pvtv2-retinanet-pvt5.yaml
 MODEL:
-  BACKBONE:
-    CROSS_ATTN: [False, False, False, False]
   PROPOSAL_GENERATOR:
     NAME: AttentionRPN
 VERSION: 2
