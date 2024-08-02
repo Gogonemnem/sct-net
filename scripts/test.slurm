@@ -91,7 +91,6 @@ for stage in "${STAGES_ARRAY[@]}"; do
             --additional-configs $training_config configs/${few_shot_config_name}.yaml\
                 -- SOLVER.IMS_PER_BATCH $batch_size \
                 OUTPUT_DIR output/${dataset}/${few_shot_config_name}/training/ \
-                MODEL.WEIGHTS output/${dataset}/${base_config_name}/pretraining/model_final.pth \
                 DATASETS.TEST_SHOTS "(10,)" \
                 # SOLVER.ACCUMULATION_STEPS $accumulation_steps \
                 2>&1 | tee "logs/training-${config_name}.txt"
@@ -111,7 +110,6 @@ for stage in "${STAGES_ARRAY[@]}"; do
                 --additional-configs $finetuning_config configs/${few_shot_config_name}.yaml\
                 -- SOLVER.IMS_PER_BATCH $batch_size \
                 OUTPUT_DIR output/${dataset}/${few_shot_config_name}/finetuning/${i}shot \
-                MODEL.WEIGHTS output/${dataset}/${few_shot_config_name}/training/model_final.pth \
                 INPUT.FS.SUPPORT_SHOT $support_shot \
                 DATASETS.TRAIN "$datasets" \
                 DATASETS.TEST_SHOTS "$test_shots" \
