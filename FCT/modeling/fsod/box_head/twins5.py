@@ -75,6 +75,13 @@ class TwinsBoxHead(Twins):
         y, size_support = self.patch_embeds[-1](y)
         y = self.pos_drops[-1](y)
 
+        if self.branch_embed:
+            x_branch_embed = torch.zeros(x.shape[:-1], dtype=torch.long, device=x.device)
+            x = x + self.branch_embedding[-1](x_branch_embed)
+
+            y_branch_embed = torch.ones(y.shape[:-1], dtype=torch.long, device=y.device)
+            y = y + self.branch_embedding[-1](y_branch_embed)
+
         for j, blk in enumerate(self.blocks[-1]):
             x, y = blk(x, size_query, y, size_support)
             
