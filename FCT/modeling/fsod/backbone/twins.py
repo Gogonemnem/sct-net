@@ -533,8 +533,10 @@ class Twins(_Twins, Backbone):
         module_names = ["patch_embeds", "pos_drops", "blocks", "pos_block", "branch_embedding"]
         for module_name in module_names:
             module = getattr(self, module_name, None)
-            for idx in range(len(self.layer_names)):
+            if module is None:
+                continue
 
+            for idx in range(len(self.layer_names)):
                 layer = module[idx]
                 if freeze_at >= idx:
                     if layer is not None:
