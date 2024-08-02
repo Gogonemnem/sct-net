@@ -51,7 +51,7 @@ class PVT5BoxHead(nn.Module):
                 attn_drop=attn_drop_rate,
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
-                branch_embed=branch_embed,
+                branch_embed=branch_embed and cross_attn[i], # TODO: branch embed needed at all?
                 cross_attn=cross_attn[i],
             )
         self.feature_info = dict(num_chs=embed_dims[i], reduction=4 * 2**i, module=f'stages.{i}')

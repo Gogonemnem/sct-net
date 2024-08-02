@@ -344,7 +344,7 @@ class Twins(_Twins, Backbone):
 
         self.pos_block = nn.ModuleList([PosConv(embed_dim, embed_dim) for embed_dim in self.embed_dims])
 
-        self.branch_embed = branch_embed and two_branch
+        self.branch_embed = branch_embed and two_branch and all(cross_attn) # TODO: branch embed needed at all?
         if self.branch_embed:
             self.branch_embedding = nn.ModuleList([nn.Embedding(2, embed_dim) for embed_dim in self.embed_dims])
 

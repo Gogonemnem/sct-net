@@ -270,13 +270,12 @@ class PyramidVisionTransformerStage(_PyramidVisionTransformerStage):
             drop_path=drop_path[i] if isinstance(drop_path, list) else drop_path,
             norm_layer=norm_layer,
         ) for i in range(depth)])
-        
-        # branch_embed = False
+
+        self.branch_embed = branch_embed
         if branch_embed:
             num_branches = 2
             self.branch_embedding = nn.Embedding(num_branches, dim_out)
             # self.branch_embedding.apply(self._init_weights)
-        self.branch_embed = branch_embed
 
     # def _init_weights(self, m):
     #     if isinstance(m, nn.Embedding):
@@ -398,7 +397,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
                 drop_path=dpr[i],
                 norm_layer=norm_layer,
                 cross_attn=cross_attn[i],
-                branch_embed=branch_embed and two_branch,
+                branch_embed=branch_embed and two_branch and cross_attn[i], # TODO: branch embed needed at all?
             )
             self.stages.append(stage)
             prev_dim = embed_dims[i]
