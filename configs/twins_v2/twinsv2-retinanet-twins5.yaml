@@ -1,0 +1,14 @@
+MODEL:
+  WEIGHTS: ./weights/twins_svt_small_fpn_c4.pth
+  BACKBONE:
+    NAME: build_retinanet_twinsv2_fpn_backbone
+    OUT_FEATURES: [c3, c4]
+  FPN:
+    IN_FEATURES: [c3, c4]
+  RPN:
+    IN_FEATURES: [p3, p4, p5, p6]
+  ROI_HEADS:
+    IN_FEATURES: [p3, p4, p5, p6]
+  ROI_BOX_HEAD:
+    NAME: TwinsBoxHead
+VERSION: 2

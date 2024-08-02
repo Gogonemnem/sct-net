@@ -20,6 +20,9 @@ class TwinsBoxHead(Twins):
         self.blocks = self.blocks[-1:]
         self.pos_block = self.pos_block[-1:]
         self.pos_drops = self.pos_drops[-1:]
+        
+        if self.branch_embed:
+            self.branch_embedding = self.branch_embedding[-1:]
 
         last_key = list(super().output_shape().keys())[-1]
         o = super().output_shape()[last_key]

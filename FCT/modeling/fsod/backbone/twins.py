@@ -16,7 +16,10 @@ from timm.models.vision_transformer import Attention as _Attention
 
 from detectron2.config import configurable
 from detectron2.modeling import BACKBONE_REGISTRY, Backbone
+from detectron2.modeling.backbone.fpn import LastLevelP6P7
 from detectron2.layers import ShapeSpec
+
+from .fpn import FPN
 
 class PosConv(_PosConv):
     def forward(self, x, size):
@@ -340,9 +343,10 @@ class Twins(_Twins, Backbone):
             cur += depths[k]
 
         self.pos_block = nn.ModuleList([PosConv(embed_dim, embed_dim) for embed_dim in self.embed_dims])
-        if branch_embed and two_branch:
+
+        self.branch_embed = branch_embed and two_branch
+        if self.branch_embed:
             self.branch_embedding = nn.ModuleList([nn.Embedding(2, embed_dim) for embed_dim in self.embed_dims])
-        self.branch_embed = branch_embed
 
         self._out_feature_strides = {"patch_embed": patch_size}
         self._out_feature_channels = {"patch_embed": self.embed_dims[0]}
@@ -362,6 +366,8 @@ class Twins(_Twins, Backbone):
             self.pos_drops = self.pos_drops[:num_layers]
             self.blocks = self.blocks[:num_layers]
             self.pos_block = self.pos_block[:num_layers]
+            if self.branch_embed:
+                self.branch_embedding = self.branch_embedding[:num_layers]
         else:
             num_layers = len(self.blocks)
         
@@ -538,3 +544,27 @@ class Twins(_Twins, Backbone):
                             if module_name == "branch_embedding":
                                 # Zero out the branch embeddings to avoid randomness
                                 param.data.fill_(0)
+
+@BACKBONE_REGISTRY.register()
+def build_retinanet_twinsv2_fpn_backbone(cfg, input_shape: ShapeSpec):
+    """
+    Args:
+        cfg: a detectron2 CfgNode
+
+    Returns:
+        backbone (Backbone): backbone module, must be a subclass of :class:`Backbone`.
+    """
+    bottom_up = BACKBONE_REGISTRY.get("Twins")(cfg, input_shape)
+    in_features = cfg.MODEL.FPN.IN_FEATURES
+    out_channels = cfg.MODEL.FPN.OUT_CHANNELS
+    last_in_feature = in_features[-1]
+    in_channels_p6p7 = bottom_up.output_shape()[last_in_feature].channels
+    backbone = FPN(
+        bottom_up=bottom_up,
+        in_features=in_features,
+        out_channels=out_channels,
+        norm=cfg.MODEL.FPN.NORM,
+        top_block=LastLevelP6P7(in_channels_p6p7, out_channels, in_feature=last_in_feature),
+        fuse_type=cfg.MODEL.FPN.FUSE_TYPE,
+    )
+    return backbone
