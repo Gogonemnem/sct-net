@@ -1,7 +1,7 @@
 _BASE_: twinsv2-retinanet-twins5.yaml
 MODEL:
   BACKBONE:
-    CROSS_ATTN: [False, False, False, False]
+    CROSS_ATTN: [False, False, False, True]
   PROPOSAL_GENERATOR:
     NAME: CrossScalesRPN
 VERSION: 2
