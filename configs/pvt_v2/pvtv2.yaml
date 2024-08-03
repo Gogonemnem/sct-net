@@ -1,0 +1,13 @@
+MODEL:
+  WEIGHTS: ./weights/pvt_v2_b2_li.pth
+  BACKBONE:
+    NAME: PyramidVisionTransformerV2
+    OUT_FEATURES: [c5]
+  RPN:
+    IN_FEATURES: [c5]
+  ROI_HEADS:
+    IN_FEATURES: [c5]
+  ROI_BOX_HEAD:
+    NAME: FastRCNNConvFCHead
+    NUM_FC: 2
+VERSION: 2
