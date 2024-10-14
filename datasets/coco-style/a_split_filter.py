@@ -9,7 +9,7 @@ import os
 import json
 from pycocotools.coco import COCO
 
-from FCT.data.datasets.builtin import CATEGORIES
+from sct_net.data.datasets.builtin import CATEGORIES
 
 FILTER_SMALL = False
 NOVEL_CLASSES = {

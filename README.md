@@ -1,4 +1,4 @@
-# FCT
+# SCT-NET
 This repo contains an implementation for the CVPR 2022 Oral paper: 'Few-Shot Object Detection with Fully Cross-Transformer' ([paper](https://arxiv.org/abs/2203.15021)) mainly copied of the official implementation at [FCT](https://github.com/GuangxingHan/FCT/tree/main). This reimplementation includes support for two aerial images dataset of DOTA, and DIOR.
 
 <div align="center"><img src="assets/figure_1.png" width="600"></div>

@@ -25,11 +25,11 @@ from detectron2.evaluation import (
     print_csv_format,
 )
 
-from FCT.config import get_cfg
-from FCT.data import DatasetMapperWithSupportCOCO, DatasetMapperWithSupportVOC
-from FCT.data.build import build_detection_train_loader, build_detection_test_loader
-from FCT.solver import build_optimizer
-from FCT.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator,DIOREvaluator, DOTAEvaluator, PASCALEvaluator
+from sct_net.config import get_cfg
+from sct_net.data import DatasetMapperWithSupportCOCO, DatasetMapperWithSupportVOC
+from sct_net.data.build import build_detection_train_loader, build_detection_test_loader
+from sct_net.solver import build_optimizer
+from sct_net.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator,DIOREvaluator, DOTAEvaluator, PASCALEvaluator
 
 
 
@@ -188,7 +188,7 @@ def setup(args):
     default_setup(cfg, args)
 
     rank = comm.get_rank()
-    setup_logger(cfg.OUTPUT_DIR, distributed_rank=rank, name="FCT")
+    setup_logger(cfg.OUTPUT_DIR, distributed_rank=rank, name="sct-net")
 
     return cfg
 
@@ -234,7 +234,7 @@ if __name__ == "__main__":
     args = get_custom_argument_parser().parse_args()
     try:
         import idr_torch
-        from FCT.engine import launch
+        from sct_net.engine import launch
 
         # Use idr_torch to set up environment variables
         rank = idr_torch.rank

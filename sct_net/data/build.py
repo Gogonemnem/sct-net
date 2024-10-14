@@ -26,8 +26,8 @@ from detectron2.utils.logger import log_first_n
 from detectron2.data.catalog import DatasetCatalog, MetadataCatalog
 from detectron2.data.common import AspectRatioGroupedDataset, DatasetFromList, MapDataset
 # from detectron2.data.dataset_mapper import DatasetMapper
-from FCT.data.dataset_mapper_pascal_voc import DatasetMapperWithSupportVOC
-from FCT.data.dataset_mapper_coco import DatasetMapperWithSupportCOCO
+from sct_net.data.dataset_mapper_pascal_voc import DatasetMapperWithSupportVOC
+from sct_net.data.dataset_mapper_coco import DatasetMapperWithSupportCOCO
 from detectron2.data.detection_utils import check_metadata_consistency
 from detectron2.data.samplers import InferenceSampler, RepeatFactorTrainingSampler, TrainingSampler
 
