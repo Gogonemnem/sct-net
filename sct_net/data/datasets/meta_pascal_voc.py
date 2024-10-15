@@ -1,15 +1,9 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-"""
-Modified on Wednesday, September 28, 2022
-
-@author: Guangxing Han
-"""
+import os
+import xml.etree.ElementTree as ET
+from typing import List, Tuple, Union, Optional, Dict
 
 from fvcore.common.file_io import PathManager
-import os
 import numpy as np
-import xml.etree.ElementTree as ET
 
 from detectron2.structures import BoxMode
 from detectron2.data import DatasetCatalog, MetadataCatalog
@@ -18,143 +12,234 @@ from detectron2.data import DatasetCatalog, MetadataCatalog
 __all__ = ["register_meta_pascal_voc"]
 
 
-def load_filtered_voc_instances(
-    name: str, dirname: str, split: str, classnames: str):
+def load_voc_instances(
+    dirname: str,
+    split: str,
+    class_names: Union[List[str], Tuple[str, ...]],
+    fileids: Union[None, List[str], Dict[str, List[str]]] = None,
+    shot: Optional[int] = None,
+    keep_difficult: bool = False,
+):
     """
     Load Pascal VOC detection annotations to Detectron2 format.
 
     Args:
-        dirname: Contain "Annotations", "ImageSets", "JPEGImages"
-        split (str): one of "train", "test", "val", "trainval"
+        dirname (str): Directory containing "Annotations", "ImageSets", "JPEGImages".
+        split (str): One of "train", "test", "val", "trainval".
+        class_names (list or tuple): List of class names to include.
+        fileids (list of str or dict of class_name to list of str, optional): File IDs to process.
+            If None, reads from the split file.
+            If dict, keys are class names, values are lists of file IDs.
+        shot (int, optional): Number of instances per class to include.
+        keep_difficult (bool): Whether to include difficult instances.
     """
-    is_shots = "shot" in name
-    if is_shots:
-        fileids = {}
-        split_dir = os.path.join("datasets", "pascal_voc", "vocsplit")
-        if "seed" in name:
-            shot = name.split('_')[-2].split('shot')[0]
-            seed = int(name.split('_seed')[-1])
-            split_dir = os.path.join(split_dir, "seed{}".format(seed))
-        else:
-            shot = name.split('_')[-1].split('shot')[0]
-        for cls in classnames:
-            with PathManager.open(os.path.join(split_dir,
-                    "box_{}shot_{}_train.txt".format(shot, cls))) as f:
-                fileids_ = np.loadtxt(f, dtype=np.str_).tolist()
-                if isinstance(fileids_, str):
-                    fileids_ = [fileids_]
-                fileids_ = [fid.split('/')[-1].split('.jpg')[0] \
-                                for fid in fileids_]
-                fileids[cls] = fileids_
-                # print("file {} has {} lines".format(os.path.join(split_dir,
-                #     "box_{}shot_{}_train.txt".format(shot, cls)), len(fileids_)))
-    else:
-        with PathManager.open(os.path.join(dirname, "ImageSets", "Main",
-                                           split + ".txt")) as f:
-            fileids = np.loadtxt(f, dtype=np.str_)
-
     dicts = []
-    if is_shots:
-        for cls, fileids_ in fileids.items():
-            dicts_ = []
-            tot_instance = 0
-            for fileid in fileids_:
+    if isinstance(fileids, dict):
+        # Few-shot setting, process per class
+        for cls, cls_fileids in fileids.items():
+            total_instances = 0
+            for fileid in cls_fileids:
                 year = "2012" if "_" in fileid else "2007"
-                dirname = os.path.join("datasets", "pascal_voc", "VOC{}".format(year))
-                anno_file = os.path.join(dirname, "Annotations", fileid + ".xml")
-                jpeg_file = os.path.join(dirname, "JPEGImages", fileid + ".jpg")
+                dirname_year = os.path.join(dirname, f"VOC{year}")
+                anno_file = os.path.join(dirname_year, "Annotations", fileid + ".xml")
+                jpeg_file = os.path.join(dirname_year, "JPEGImages", fileid + ".jpg")
 
-                tree = ET.parse(anno_file)
+                with PathManager.open(anno_file) as f:
+                    tree = ET.parse(f)
+
                 r = {
                     "file_name": jpeg_file,
                     "image_id": fileid,
-                    "height": int(tree.findall("./size/height")[0].text),
-                    "width": int(tree.findall("./size/width")[0].text),
+                    "height": int(tree.find("./size/height").text),
+                    "width": int(tree.find("./size/width").text),
                 }
 
                 instances = []
                 for obj in tree.findall("object"):
-                    cls_ = obj.find("name").text
+                    obj_cls = obj.find("name").text
+                    if obj_cls != cls:
+                        continue
+
                     difficult = int(obj.find("difficult").text)
-                    if difficult == 1: 
+                    if not keep_difficult and difficult == 1:
                         continue
-                    if cls != cls_:
-                        continue
+
                     bbox = obj.find("bndbox")
-                    bbox = [float(bbox.find(x).text) for x in ["xmin", "ymin", "xmax", "ymax"]]
-                    bbox[0] -= 1.0
-                    bbox[1] -= 1.0
+                    bbox = [float(bbox.find(x).text) - 1.0 for x in ["xmin", "ymin", "xmax", "ymax"]]
 
                     instances.append({
-                        "category_id": classnames.index(cls_),
+                        "category_id": class_names.index(cls),
                         "bbox": bbox,
-                        "bbox_mode": BoxMode.XYXY_ABS
+                        "bbox_mode": BoxMode.XYXY_ABS,
                     })
-                if tot_instance + len(instances) <= int(shot):
-                    r["annotations"] = instances
-                    tot_instance += len(instances)
-                else:
-                    r["annotations"] = instances[:int(shot)-tot_instance]
-                    tot_instance = int(shot)
-                dicts_.append(r)
-                if tot_instance >= int(shot):
+
+                if not instances:
+                    continue
+
+                # Enforce shot limit per class
+                if shot is not None:
+                    if total_instances + len(instances) > shot:
+                        instances = instances[: shot - total_instances]
+                        total_instances = shot
+                    else:
+                        total_instances += len(instances)
+
+                r["annotations"] = instances
+                dicts.append(r)
+
+                if shot is not None and total_instances >= shot:
                     break
-            # if len(dicts_) > int(shot):
-            #     dicts_ = np.random.choice(dicts_, int(shot), replace=False)
-            dicts.extend(dicts_)
     else:
+        # Standard setting or few-shot without per-class file IDs
+        if fileids is None:
+            with PathManager.open(os.path.join(dirname, "ImageSets", "Main", split + ".txt")) as f:
+                fileids = np.loadtxt(f, dtype=str)
+
+        annotation_dirname = PathManager.get_local_path(os.path.join(dirname, "Annotations/"))
+
         for fileid in fileids:
-            anno_file = os.path.join(dirname, "Annotations", fileid + ".xml")
+            anno_file = os.path.join(annotation_dirname, fileid + ".xml")
             jpeg_file = os.path.join(dirname, "JPEGImages", fileid + ".jpg")
 
-            tree = ET.parse(anno_file)
+            with PathManager.open(anno_file) as f:
+                tree = ET.parse(f)
 
             r = {
                 "file_name": jpeg_file,
                 "image_id": fileid,
-                "height": int(tree.findall("./size/height")[0].text),
-                "width": int(tree.findall("./size/width")[0].text),
+                "height": int(tree.find("./size/height").text),
+                "width": int(tree.find("./size/width").text),
             }
             instances = []
 
             for obj in tree.findall("object"):
                 cls = obj.find("name").text
-                if not (cls in classnames):
+                if cls not in class_names:
                     continue
+
                 difficult = int(obj.find("difficult").text)
-                if difficult == 1: 
-                    continue # voc do not use difficult objects to calculate mAP
+                if not keep_difficult and difficult == 1:
+                    continue
+
                 bbox = obj.find("bndbox")
-                bbox = [float(bbox.find(x).text) for x in ["xmin", "ymin", "xmax", "ymax"]]
-                bbox[0] -= 1.0
-                bbox[1] -= 1.0
+                bbox = [float(bbox.find(x).text) - 1.0 for x in ["xmin", "ymin", "xmax", "ymax"]]
 
                 instances.append({
-                    "category_id": classnames.index(cls),
+                    "category_id": class_names.index(cls),
                     "bbox": bbox,
                     "bbox_mode": BoxMode.XYXY_ABS,
                 })
-            r["annotations"] = instances
-            dicts.append(r)
+
+            if instances:
+                r["annotations"] = instances
+                dicts.append(r)
+
     return dicts
 
 
+def get_few_shot_fileids(name: str, class_names: List[str], shot: int, seed: Optional[int] = None):
+    """
+    Get per-class file IDs for the few-shot setting.
+
+    Args:
+        name (str): Dataset name.
+        class_names (list of str): List of class names.
+        shot (int): Number of shots per class.
+        seed (int, optional): Seed for the dataset split.
+
+    Returns:
+        Dict[str, List[str]]: Dictionary mapping class names to file IDs.
+    """
+    fileids = {}
+    split_dir = os.path.join("datasets", "pascal_voc", "vocsplit")
+    if seed is not None:
+        split_dir = os.path.join(split_dir, f"seed{seed}")
+
+    for cls in class_names:
+        shot_file = os.path.join(split_dir, f"box_{shot}shot_{cls}_train.txt")
+        with PathManager.open(shot_file) as f:
+            ids = np.loadtxt(f, dtype=str).tolist()
+            if isinstance(ids, str):
+                ids = [ids]
+            ids = [os.path.splitext(os.path.basename(fid))[0] for fid in ids]
+            fileids[cls] = ids
+
+    return fileids
+
+
+
 def register_meta_pascal_voc(
-    name, metadata, dirname, split, year, keepclasses, sid):
+    name: str,
+    metadata: dict,
+    dirname: str,
+    split: str,
+    year: int,
+    keepclasses: str,
+    sid: int,
+):
+    """
+    Register the Pascal VOC dataset with support for meta-learning experiments.
+
+    Args:
+        name (str): Dataset name.
+        metadata (dict): Metadata containing class information.
+        dirname (str): Root directory of the dataset.
+        split (str): Dataset split ("train", "test", etc.).
+        year (int): Dataset year (2007 or 2012).
+        keepclasses (str): Classes to keep ("base", "novel", etc.).
+        sid (int): Split ID.
+    """
     if keepclasses.startswith('base_novel'):
         thing_classes = metadata["thing_classes"][sid]
     elif keepclasses.startswith('base'):
         thing_classes = metadata["base_classes"][sid]
     elif keepclasses.startswith('novel'):
         thing_classes = metadata["novel_classes"][sid]
+    else:
+        thing_classes = metadata["thing_classes"][sid]
 
-    DatasetCatalog.register(
-        name, lambda: load_filtered_voc_instances(
-            name, dirname, split, thing_classes)
-    )
+    is_shots = "shot" in name
+    shot = None
+    seed = None
+
+    if is_shots:
+        # Parse shot and seed from the dataset name
+        parts = name.split('_')
+        if "seed" in name:
+            shot_part = [p for p in parts if 'shot' in p][0]
+            shot = int(shot_part.replace('shot', ''))
+            seed_part = [p for p in parts if 'seed' in p][0]
+            seed = int(seed_part.replace('seed', ''))
+        else:
+            shot_part = [p for p in parts if 'shot' in p][0]
+            shot = int(shot_part.replace('shot', ''))
+
+    def dataset_func():
+        if is_shots:
+            fileids = get_few_shot_fileids(name, thing_classes, shot, seed)
+            return load_voc_instances(
+                dirname=dirname,
+                split=split,
+                class_names=thing_classes,
+                fileids=fileids,
+                shot=shot,
+                keep_difficult=False,
+            )
+        else:
+            return load_voc_instances(
+                dirname=dirname,
+                split=split,
+                class_names=thing_classes,
+                keep_difficult=False,
+            )
+
+    DatasetCatalog.register(name, dataset_func)
 
     MetadataCatalog.get(name).set(
-        thing_classes=thing_classes, dirname=dirname, year=year, split=split,
+        thing_classes=thing_classes,
+        dirname=dirname,
+        year=year,
+        split=split,
         base_classes=metadata["base_classes"][sid],
-        novel_classes=metadata["novel_classes"][sid]
+        novel_classes=metadata["novel_classes"][sid],
     )
