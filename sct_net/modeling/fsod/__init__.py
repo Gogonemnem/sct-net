@@ -1,7 +1,7 @@
-from .fsod_rcnn import FsodRCNN
-from .fsod_rpn import FsodRPN
-from .fsod_roi_heads import FsodStandardROIHeads
-from .fsod_fast_rcnn import FsodFastRCNNOutputLayers
+from .meta_arch.fsod_rcnn import FsodRCNN
+from .proposal_generator.fsod_rpn import FsodRPN
+from .roi_heads.fsod_roi_heads import FsodStandardROIHeads
+from .roi_heads.fsod_fast_rcnn import FsodFastRCNNOutputLayers
 
 from .backbone.pvt_v2 import PyramidVisionTransformerV2, build_retinanet_pvtv2_fpn_backbone
 from .backbone.twins import Twins

@@ -16,7 +16,7 @@ from detectron2.modeling.poolers import ROIPooler
 from timm.layers.norm import LayerNorm
 from timm.models.layers import Mlp
 
-from .backbone.pvt_v2 import Attention, Block, get_norm
+from ..backbone.pvt_v2 import Attention, Block, get_norm
 
 
 @PROPOSAL_GENERATOR_REGISTRY.register()
