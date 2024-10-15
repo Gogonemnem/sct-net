@@ -87,19 +87,20 @@ _C.MODEL.MULTI_RELATION.PATCH_RELATION = True
 # ---------------------------------------------------------------------------- #
 # Solver
 # ---------------------------------------------------------------------------- #
+_C.SOLVER.SOLVER_TYPE = "adamw"
+
 _C.SOLVER.WEIGHT_DECAY_BIAS = _C.SOLVER.WEIGHT_DECAY  # None means following WEIGHT_DECAY
+_C.SOLVER.HEAD_LR_FACTOR = 1.0
+
+_C.SOLVER.BETA1 = 0.9
+_C.SOLVER.BETA2 = 0.999
+_C.SOLVER.EPS = 1e-8
 
 # ---------------------------------------------------------------------------- #
 # Misc options
 # ---------------------------------------------------------------------------- #
 _C.OUTPUT_DIR = "./output"
 _C.VIS_PERIOD = 20
-
-# ---------------------------------------------------------------------------- #
-# Additional Configs
-# ---------------------------------------------------------------------------- #
-_C.SOLVER.HEAD_LR_FACTOR = 1.0
-_C.SOLVER.SOLVER_TYPE = "adamw"
 
 # ---------------------------------------------------------------------------- #
 # Few shot setting
