@@ -4,7 +4,7 @@ MODEL:
   ROI_HEADS:
     NUM_CLASSES: 20
 DATASETS:
-  TRAIN: ("dior_train2017_nonvoc_with_small",)
+  TRAIN: ("dior_train2017_base_with_small",)
   TEST: ("dior_test2017",)
   TEST_KEEPCLASSES: 'all'
 INPUT:

@@ -26,7 +26,7 @@ from detectron2.evaluation import (
 )
 
 from sct_net.config import get_cfg
-from sct_net.data import DatasetMapperWithSupportCOCO, DatasetMapperWithSupportVOC
+from sct_net.data import DatasetMapperWithSupport
 from sct_net.data.build import build_detection_train_loader, build_detection_test_loader
 from sct_net.solver import build_optimizer
 from sct_net.evaluation import COCOEvaluator, PascalVOCDetectionEvaluator,DIOREvaluator, DOTAEvaluator, PASCALEvaluator
@@ -68,10 +68,7 @@ class FsodTrainer(Trainer):
         It calls :func:`detectron2.data.build_detection_train_loader` with a customized
         DatasetMapper, which adds categorical labels as a semantic mask.
         """
-        if 'pascalvoc' in cfg.DATASETS.TRAIN[0]:
-            mapper = DatasetMapperWithSupportVOC(cfg)
-        else:
-            mapper = DatasetMapperWithSupportCOCO(cfg)
+        mapper = DatasetMapperWithSupport(cfg)
         return build_detection_train_loader(cfg, mapper)
     
     @classmethod

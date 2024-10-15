@@ -161,29 +161,29 @@ CATEGORIES = {
 
 _PREDEFINED_SPLITS = {}
 _PREDEFINED_SPLITS["pascal"] = {
-    "pascal_train_nonvoc":            ("train", "new_annotations/base_split_instances_train.json"), # by default no_smaller_32
-    "pascal_train_nonvoc_with_small": ("train", "new_annotations/base_split_instances_train_with_small.json"), # includeing all boxes
+    "pascal_train_base":            ("train", "new_annotations/base_split_instances_train.json"), # by default no_smaller_32
+    "pascal_train_base_with_small": ("train", "new_annotations/base_split_instances_train_with_small.json"), # includeing all boxes
     "pascal_test":                    ("test",  "annotations/instances_test.json"),
 }
 
 # ==== Predefined datasets and splits for DIOR ==========
 _PREDEFINED_SPLITS["dior"] = {
-    "dior_train2017_nonvoc":             ("train2017", "new_annotations/base_split_instances_train2017.json"), # by default no_smaller_32
-    "dior_train2017_nonvoc_with_small":  ("train2017", "new_annotations/base_split_instances_train2017_with_small.json"), # includeing all boxes
+    "dior_train2017_base":             ("train2017", "new_annotations/base_split_instances_train2017.json"), # by default no_smaller_32
+    "dior_train2017_base_with_small":  ("train2017", "new_annotations/base_split_instances_train2017_with_small.json"), # includeing all boxes
     "dior_test2017":                     ("test2017",  "annotations/instances_test2017.json"),
 }
 
 # ==== Predefined datasets and splits for DOTA ==========
 _PREDEFINED_SPLITS["dota"] = {
-        "dota_train2017_nonvoc":            ("train2017", "new_annotations/base_split_instances_train2017.json"), # by default no_smaller_32
-        "dota_train2017_nonvoc_with_small": ("train2017", "new_annotations/base_split_instances_train2017_with_small.json"), # includeing all boxes
+        "dota_train2017_base":            ("train2017", "new_annotations/base_split_instances_train2017.json"), # by default no_smaller_32
+        "dota_train2017_base_with_small": ("train2017", "new_annotations/base_split_instances_train2017_with_small.json"), # includeing all boxes
         "dota_test2017":                    ("test2017",  "annotations/instances_test2017.json"),
     }
 
 # ==== Predefined datasets and splits for COCO ==========#
 _PREDEFINED_SPLITS["coco"] = {
-    "coco_train2017_nonvoc":            ("train2017", "new_annotations/final_split_non_voc_instances_train2017.json"), # by default no_smaller_32
-    "coco_train2017_nonvoc_with_small": ("train2017", "new_annotations/final_split_non_voc_instances_train2017_with_small.json"), # includeing all boxes
+    "coco_train2017_base":            ("train2017", "new_annotations/final_split_non_voc_instances_train2017.json"), # by default no_smaller_32
+    "coco_train2017_base_with_small": ("train2017", "new_annotations/final_split_non_voc_instances_train2017_with_small.json"), # includeing all boxes
     "coco_val2017":                     ("val2017",   "annotations/instances_val2017.json"),
 }
 

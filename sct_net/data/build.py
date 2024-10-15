@@ -6,28 +6,14 @@ Modified on Wednesday, September 28, 2022
 @author: Guangxing Han
 """
 
-import bisect
 import copy
 import itertools
 import logging
-import numpy as np
-import operator
-import pickle
 import torch.utils.data
-from fvcore.common.file_io import PathManager
-from tabulate import tabulate
-from termcolor import colored
-
-from detectron2.structures import BoxMode
-from detectron2.utils.comm import get_world_size
-from detectron2.utils.env import seed_all_rng
-from detectron2.utils.logger import log_first_n
 
 from detectron2.data.catalog import DatasetCatalog, MetadataCatalog
 from detectron2.data.common import AspectRatioGroupedDataset, DatasetFromList, MapDataset
-# from detectron2.data.dataset_mapper import DatasetMapper
-from sct_net.data.dataset_mapper_pascal_voc import DatasetMapperWithSupportVOC
-from sct_net.data.dataset_mapper_coco import DatasetMapperWithSupportCOCO
+from sct_net.data.dataset_mapper_support import DatasetMapperWithSupport
 from detectron2.data.detection_utils import check_metadata_consistency
 from detectron2.data.samplers import InferenceSampler, RepeatFactorTrainingSampler, TrainingSampler
 
@@ -146,10 +132,9 @@ def build_detection_train_loader(cfg, mapper=None):
     dataset = DatasetFromList(dataset_dicts, copy=False)
     
     if mapper is None:
-        if 'coco' in cfg.DATASETS.TRAIN[0]:
-            mapper = DatasetMapperWithSupportCOCO(cfg, True)
-        elif 'voc' in cfg.DATASETS.TRAIN[0]:
-            mapper = DatasetMapperWithSupportVOC(cfg, True)
+        mapper_params = DatasetMapperWithSupport.from_config(cfg, True)
+        mapper = DatasetMapperWithSupport(**mapper_params)
+        raise Exception('hi')
     dataset = MapDataset(dataset, mapper)
 
     sampler_name = cfg.DATALOADER.SAMPLER_TRAIN

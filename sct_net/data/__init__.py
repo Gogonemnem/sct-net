@@ -1,11 +1,4 @@
-"""
-Created on Wednesday, September 28, 2022
-
-@author: Guangxing Han
-"""
-
-from .dataset_mapper_pascal_voc import DatasetMapperWithSupportVOC
-from .dataset_mapper_coco import DatasetMapperWithSupportCOCO
+from .dataset_mapper_support import DatasetMapperWithSupport
 
 from . import datasets  # isort:skip
 
