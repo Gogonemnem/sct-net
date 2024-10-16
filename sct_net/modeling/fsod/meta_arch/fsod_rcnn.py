@@ -19,20 +19,11 @@ class FsodRCNN(GeneralizedRCNN):
         self,
         support_way,
         support_shot,
-        data_dir,
-        dataset,
         **kwargs):
         super().__init__(**kwargs)
 
         self.support_way = support_way
         self.support_shot = support_shot
-        self.data_dir = data_dir
-        self.dataset = dataset
-
-        self.evaluation_dataset = 'voc'
-        self.evaluation_shot = 10
-        self.keepclasses = 'all1'
-        self.test_seeds = 0
 
     @classmethod
     def from_config(cls, cfg):
@@ -41,8 +32,6 @@ class FsodRCNN(GeneralizedRCNN):
             {
                 "support_way": cfg.FEWSHOT.SUPPORT_WAY,
                 "support_shot": cfg.FEWSHOT.SUPPORT_SHOT,
-                "data_dir": cfg.DATA_DIR,
-                "dataset": cfg.DATASETS.TRAIN[0],
             }
         )
         return ret
