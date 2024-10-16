@@ -1,107 +1,52 @@
-# SCT-NET
-This repo contains an implementation for the CVPR 2022 Oral paper: 'Few-Shot Object Detection with Fully Cross-Transformer' ([paper](https://arxiv.org/abs/2203.15021)) mainly copied of the official implementation at [FCT](https://github.com/GuangxingHan/FCT/tree/main). This reimplementation includes support for two aerial images dataset of DOTA, and DIOR.
+# SCT-Net: Scale Cross-Transformer Network
+SCT-Net is a Few-Shot Object Detection (FSOD) model that leverages multi-scale and cross-scale feature management, enhanced detection heads, selective layer freezing, and the incorporation of Twins Transformers. This repository provides tools to train, evaluate, and reproduce SCT-Net's results on popular datasets like DOTA and DIOR, tailored for challenging object detection in aerial imagery. The code is forked from [FCT](https://github.com/GuangxingHan/FCT).
 
-<div align="center"><img src="assets/figure_1.png" width="600"></div>
 
-## Highlights
+## Overview
 
-- To the best of our knowledge, we are the first to explore and propose the vision transformer based models for few-shot object detection.
-- The proposed FCT model can encourage multi-level interactions between the query and support, gradually from low-level to high-level feature spaces.
+SCT-Net (Selective Cross-Transformer Network) is developed for FSOD scenarios, focusing on challenging tasks like aerial imagery detection. It outperforms several baseline models, including FCT, RetinaNet, and AAF-based frameworks, by applying innovative cross-attention and multi-scale features to efficiently identify objects with limited labeled training data. SCT-Net demonstrates superior performance particularly on datasets containing a variety of object scales, such as DOTA and DIOR.
+
+
 
 ## Installation
 
-Our codebase is built upon [detectron2](https://github.com/facebookresearch/detectron2). You only need to install [detectron2](https://github.com/facebookresearch/detectron2/blob/main/INSTALL.md) following their instructions.
+To set up SCT-Net, first clone the repository and install the dependencies found in ```requirements.txt```.
 
-Please note that we used detectron 0.2.1 in this project. Higher versions of detectron might report errors.
+Ensure that Detectron2 is installed from the GitHub repo as the latest version (as of writing in 2024) will lead to compatibility issues.
 
 ## Data Preparation
 
 - Mainly the model evaluate on two FSOD benchmarks PASCAL VOC and MSCOCO following the previous work [TFA](https://github.com/ucbdrive/few-shot-object-detection).
-- Please prepare the original PASCAL VOC, DIOR, DOTA and MSCOCO datasets and also the few-shot datasets following [TFA](https://github.com/ucbdrive/few-shot-object-detection/blob/master/datasets/README.md) in the folder ./datasets/coco, ./dota_dataset/coco, ./DIOR/coco and ./datasets/pascal_voc respectively.
-- Please make sure that you DIOR and DOTA datasets are in coco format
-- First run the scripts ./prepare_coco_few_shot.py and ./prepare_coco_few_shot_test.py  for creating support image list. Customize the paths in these files according to your needs. The seed 1729 is mainly used for fair comparison with [XQSA](https://github.com/pierlj/aaf_framework).
-- Please run the scripts in ./datasets/coco, ./datasets/pascal_voc, ./datasets/dota, ./datasets/dior step by step to generate the support images for both many-shot base classes (used during meta-training) and few-shot classes (used during few-shot fine-tuning).
+
+- Please prepare the datasets and also the few-shot datasets following [TFA](https://github.com/ucbdrive/few-shot-object-detection/blob/master/datasets/README.md)
+- Please make sure that the datasets (besides PascalVOC) are in coco format
+<!-- - First run the scripts ./prepare_coco_few_shot.py and ./prepare_coco_few_shot_test.py  for creating support image list. Customize the paths in these files according to your needs. The seed 1729 is mainly used for fair comparison with [XQSA](https://github.com/pierlj/aaf_framework). -->
+- Please run the scripts in ./datasets
 - For a fair comparison, two sets of supports are created separately for training and testing. The testing support set is created specifically from the test set of the dataset.
-- For pascalCOCO (pascal VOC dataset in coco format) the support set is created in a way to maximize the similarity to [XQSA](https://github.com/pierlj/aaf_framework/tree/master).
 
-## Converting ImageNet pre-trained [PVT](https://github.com/whai362/PVT/tree/v2/classification#model-zoo) models into C4-based detection format
-The script is 
-```
-python build_pvt_C4_from_official_model.py
-```
-We use the converted model pvt_v2_b2_li_C4.pth by default next.
+## Converting pre-trained models into detection formats
+The script is can be found in the python notebook ```load-and-save-timm-models.ipynb``` from the timm library.
 
-## Model training and evaluation on MSCOCO
+## Model training and evaluation
 
 - We have three steps for model training, first pre-training the single-branch based model over base classes, then training the two-branch based model over base classes, and finally fine-tuning the two-branch based model over novel classes.
-- The training script for pre-training the single-branch based model over base classes is
+- The full training script can be accessed as:
 ```
-sh scripts/single_branch_pretraining_coco_pvt_v2_b2_li.sh
-```
-- Then initailized with the first step trained model, the script for training the two-branch based model over base classes is
-```
-sh scripts/two_branch_training_coco_pvt_v2_b2_li.sh
-```
-- Finally we perform 1/2/3/5/10/30-shot fine-tuning over novel classes, using the exact same few-shot datasets as [TFA](https://github.com/ucbdrive/few-shot-object-detection). The training script is
-```
-sh scripts/two_branch_few_shot_finetuning_coco_pvt_v2_b2_li.sh
+sh scripts/train.sh
 ```
 
-## Model training and evaluation on PASCAL VOC
 
-- We evaluate our model on the three splits as [TFA](https://github.com/ucbdrive/few-shot-object-detection).
-- Similar as MSCOCO, we have three steps for model training.
-- The training scripts for VOC split1 is 
-```
-sh scripts/single_branch_pretraining_pascalvoc_split1_pvt_v2_b2_li.sh
-sh scripts/two_branch_training_pascalvoc_split1_pvt_v2_b2_li.sh
-sh scripts/two_branch_few_shot_finetuning_pascalvoc_split1_pvt_v2_b2_li.sh
-```
-- The training scripts for VOC split2 is 
-```
-sh scripts/single_branch_pretraining_pascalvoc_split2_pvt_v2_b2_li.sh
-sh scripts/two_branch_training_pascalvoc_split2_pvt_v2_b2_li.sh
-sh scripts/two_branch_few_shot_finetuning_pascalvoc_split2_pvt_v2_b2_li.sh
-```
-- The training scripts for VOC split3 is 
-```
-sh scripts/single_branch_pretraining_pascalvoc_split3_pvt_v2_b2_li.sh
-sh scripts/two_branch_training_pascalvoc_split3_pvt_v2_b2_li.sh
-sh scripts/two_branch_few_shot_finetuning_pascalvoc_split3_pvt_v2_b2_li.sh
-```
+## Results
 
-## Model Zoo 
+- SCT-Net achieves competitive results on challenging datasets such as DOTA and DIOR, particularly with novel classes. Key results include:
 
-We provided both the single-branch pre-trained models and the meta-trained models (the two-branch based models) over base classes for both MSCOCO dataset and the 3 splits on VOC dataset. The model links are [Google Drive](https://drive.google.com/drive/u/0/folders/1VFkR6siG4TH6L2ASxpefYMIYMNH_CjoB) and [Tencent Weiyun](https://share.weiyun.com/Oy0yoJyB).
+- Multi-Scale Feature Handling: Demonstrates significant improvements, achieving higher Average Precision (AP) scores compared to single and cross-scale configurations.
 
-## Citing FCT
-If you use this work in your research or wish to refer to the baseline results published here, please use the following BibTeX entries:
-```
-@inproceedings{han2022few,
-  title={Few-shot object detection with fully cross-transformer},
-  author={Han, Guangxing and Ma, Jiawei and Huang, Shiyuan and Chen, Long and Chang, Shih-Fu},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
-  pages={5321--5330},
-  year={2022}
-}
-@inproceedings{han2022meta,
-  title={Meta faster r-cnn: Towards accurate few-shot object detection with attentive feature alignment},
-  author={Han, Guangxing and Huang, Shiyuan and Ma, Jiawei and He, Yicheng and Chang, Shih-Fu},
-  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
-  volume={36},
-  number={1},
-  pages={780--789},
-  year={2022}
-}
-@inproceedings{han2021query,
-  title={Query adaptive few-shot object detection with heterogeneous graph convolutional networks},
-  author={Han, Guangxing and He, Yicheng and Huang, Shiyuan and Ma, Jiawei and Chang, Shih-Fu},
-  booktitle={Proceedings of the IEEE/CVF International Conference on Computer Vision},
-  pages={3263--3272},
-  year={2021}
-}
-```
+- Cross-Attention Mechanism: Outperforms self-attention in multiple configurations, especially when combined with a multi-scale approach.
 
-## Acknowledgement
+- C4 vs C5 Detection Heads: Evaluations revealed that the C4 configuration consistently outperformed the C5 setup, indicating that C4 is the optimal backbone for SCT-Net.
 
-This repo is developed based on [Meta Faster R-CNN](https://github.com/GuangxingHan/Meta-Faster-R-CNN), [QA-FewDet](https://github.com/GuangxingHan/QA-FewDet) and [PVT](https://github.com/whai362/PVT). Thanks for their wonderful codebases.
+
+## Contributing
+We welcome contributions! Please open an issue or submit a pull request for any improvements or fixes.
+
