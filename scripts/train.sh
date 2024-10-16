@@ -67,14 +67,14 @@ for stage in "${STAGES_ARRAY[@]}"; do
 
     if [[ "$stage" == "two-branch" ]]; then
         ### Training (Two-branch) --eval-only
-        python3 train_net.py --config-file "$dataset_config" --resume \
+        python3 train_net.py --config-file "$dataset_config" --resume --eval-only \
             --additional-configs $training_config configs/${few_shot_config_name}.yaml\
                 -- SOLVER.IMS_PER_BATCH $batch_size \
                 OUTPUT_DIR output/${dataset}/${few_shot_config_name}/training/ \
-                MODEL.WEIGHTS output/${dataset}/${base_config_name}/pretraining/model_final.pth \
-                DATASETS.TEST_SHOTS "(10,)" \
+                FEWSHOT.TEST_SHOT "10" \
                 # SOLVER.ACCUMULATION_STEPS $accumulation_steps \
-                2>&1 | tee "logs/training-${config_name}.txt"
+                # MODEL.WEIGHTS output/${dataset}/${base_config_name}/pretraining/model_final.pth \
+                2>&1 | tee "logs/training-${few_shot_config_name}.txt"
     fi
 
     if [[ "$stage" == "fine-tuning" ]]; then
@@ -83,7 +83,7 @@ for stage in "${STAGES_ARRAY[@]}"; do
             dataset_name="${dataset}_train2017_full_${i}shot"
 
             datasets="('${dataset_name}',)"
-            test_shots="('${i}',)"
+            test_shot=$((i))
             support_shot=$((i-1))
 
             # Execute the training command with the adjusted dataset name
@@ -92,10 +92,10 @@ for stage in "${STAGES_ARRAY[@]}"; do
                 -- SOLVER.IMS_PER_BATCH $batch_size \
                 OUTPUT_DIR output/${dataset}/${few_shot_config_name}/finetuning/${i}shot \
                 MODEL.WEIGHTS output/${dataset}/${few_shot_config_name}/training/model_final.pth \
-                INPUT.FS.SUPPORT_SHOT $support_shot \
+                FEWSHOT.SUPPORT_SHOT $support_shot \
                 DATASETS.TRAIN "$datasets" \
-                DATASETS.TEST_SHOTS "$test_shots" \
-                2>&1 | tee "logs/finetuning-${config_name}_${i}shot.txt"
+                FEWSHOT.TEST_SHOT "$test_shot" \
+                2>&1 | tee "logs/finetuning-${few_shot_config_name}_${i}shot.txt"
         done
     fi
 done

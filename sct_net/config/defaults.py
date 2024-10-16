@@ -105,18 +105,17 @@ _C.VIS_PERIOD = 20
 # ---------------------------------------------------------------------------- #
 # Few shot setting
 # ---------------------------------------------------------------------------- #
-_C.INPUT.FS = CN()
+_C.FEWSHOT = CN()
 # Whether to enable two-branch 'few-shot' setting
-_C.INPUT.FS.ENABLED = False
+_C.FEWSHOT.ENABLED = False
 # Whether to enable the actual few-shot examples setting
-_C.INPUT.FS.FEW_SHOT = False
-_C.INPUT.FS.SUPPORT_WAY = 2
-_C.INPUT.FS.SUPPORT_SHOT = 0
-_C.INPUT.FS.SUPPORT_EXCLUDE_QUERY = False
+_C.FEWSHOT.FEW_SHOT = False
+_C.FEWSHOT.SUPPORT_WAY = 2
+_C.FEWSHOT.SUPPORT_SHOT = 0
+_C.FEWSHOT.TEST_SHOT = 10
+_C.FEWSHOT.TEST_ALL_CLASSES = True
+_C.FEWSHOT.SUPPORT_EXCLUDE_QUERY = False
 
-# _C.DATASETS.TRAIN_KEEPCLASSES = 'all'
-_C.DATASETS.TEST_KEEPCLASSES = ''
-_C.DATASETS.TEST_SHOTS = (1,2,3,5,10,30)
 _C.DATASETS.SEEDS = 0
 
 _C.MODEL.BACKBONE.ONLY_TRAIN_NORM = False

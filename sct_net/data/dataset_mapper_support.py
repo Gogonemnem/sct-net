@@ -37,10 +37,12 @@ class DatasetMapperWithSupport(DatasetMapper):
         few_shot: bool = True,
         support_way: int = 1,
         support_shot: int = 5,
+        test_shot: int = 10,
         data_dir: str = "",
         seeds: int = 0,
         dataset_name: str = "",
         dataset_names: Tuple[str] = [],
+        test_all_classes: bool = True,
         support_exclude_query: bool = False,
         **kwargs,
     ):
@@ -51,8 +53,10 @@ class DatasetMapperWithSupport(DatasetMapper):
         self.few_shot = few_shot
         self.support_way = support_way
         self.support_shot = support_shot
+        self.test_shot = test_shot
         self.data_dir = data_dir
         self.seeds = seeds
+        self.test_all_classes = test_all_classes
         self.support_exclude_query = support_exclude_query
 
         self.dataset_name = dataset_name
@@ -61,21 +65,27 @@ class DatasetMapperWithSupport(DatasetMapper):
         if self.support_on:
             self._load_support_dataframe()
             self._prepare_metadata()
+            if not self.is_train:
+                # Load support data for inference if in evaluation mode
+                self.support_data_for_inference, self.shots_per_class = self._load_all_support_for_inference()
+
 
     @classmethod
     def from_config(cls, cfg, is_train: bool = True):
         ret = super().from_config(cfg, is_train)
         # Additional configuration parameters for support data
         ret.update({
-            "support_on":   is_train,  # Enable support data during training
-            "few_shot":     cfg.INPUT.FS.FEW_SHOT,
-            "support_way":  cfg.INPUT.FS.SUPPORT_WAY,
-            "support_shot": cfg.INPUT.FS.SUPPORT_SHOT,
+            "support_on":   cfg.FEWSHOT.ENABLED,  # Enable support data during training
+            "few_shot":     cfg.FEWSHOT.FEW_SHOT,
+            "support_way":  cfg.FEWSHOT.SUPPORT_WAY,
+            "support_shot": cfg.FEWSHOT.SUPPORT_SHOT,
+            "test_shot":    cfg.FEWSHOT.TEST_SHOT,
             "data_dir":     cfg.DATA_DIR,
             "seeds":        cfg.DATASETS.SEEDS,
             "dataset_name": cfg.DATASETS.TRAIN[0],
             "dataset_names": cfg.DATASETS.TRAIN,
-            "support_exclude_query": cfg.INPUT.FS.SUPPORT_EXCLUDE_QUERY,
+            "test_all_classes": cfg.DATASETS.TEST_ALL_CLASSES,
+            "support_exclude_query": cfg.FEWSHOT.SUPPORT_EXCLUDE_QUERY,
         })
         return ret
 
@@ -99,10 +109,16 @@ class DatasetMapperWithSupport(DatasetMapper):
         prefix = ""
         if self.seeds != 0:
             prefix += f"seeds{self.seeds}/"
-        if 'full' in self.dataset_name:
+        
+        train_full_classes = 'full' in self.dataset_name and self.is_train
+        test_full_classes = self.test_all_classes and not self.is_train
+        if train_full_classes or test_full_classes:
             prefix += "full_class_"
+
         if self.few_shot:
             path = prefix + f"{self.support_shot+1}_shot_support_df.json"
+        elif not self.is_train:
+            path = prefix + f"{self.test_shot}_shot_support_df.json"
         else:
             path = "train_support_df.json"
 
@@ -140,12 +156,48 @@ class DatasetMapperWithSupport(DatasetMapper):
             reverse_id_mapper = lambda dataset_id: metadata.thing_dataset_id_to_contiguous_id[dataset_id]
             self.support_df['category_id'] = self.support_df['category_id'].map(reverse_id_mapper)
         # For VOC, IDs are usually already contiguous
+    
+    def _load_all_support_for_inference(self):
+        """
+        Preloads all support data for inference. This data will be reused during inference.
+
+        Returns:
+            Tuple of (support_images, support_bboxes, support_cls) and shots per class.
+        """
+        support_images_list = []
+        support_bboxes_list = []
+        support_cls_list = []
+        shots_per_class = {}
+
+        # Unique classes for consistent ordering
+        unique_classes = self.support_df['category_id'].unique()
+
+        for cls_id in unique_classes:
+            cls_df = self.support_df[self.support_df['category_id'] == cls_id]
+            shots_per_class[cls_id] = len(cls_df)
+            for _, row in cls_df.iterrows():
+                support_image, support_box, support_cls, _ = self._load_support_data(row)
+                support_images_list.append(support_image)
+                support_bboxes_list.append(support_box)
+                support_cls_list.append(support_cls)
+
+        support_images = np.stack(support_images_list, axis=0)
+        support_bboxes = np.stack(support_bboxes_list, axis=0)
+        support_cls = support_cls_list
+
+        return (support_images, support_bboxes, support_cls), shots_per_class
 
     def __call__(self, dataset_dict):
         dataset_dict = super().__call__(dataset_dict)
         if self.support_on:
-            # Generate support data and add to dataset_dict
-            support_images, support_bboxes, support_cls = self.generate_support(dataset_dict)
+            if self.is_train:
+                # Generate support data and add to dataset_dict during training
+                support_images, support_bboxes, support_cls = self.generate_support(dataset_dict)
+            else:
+                # Use preloaded support data during inference
+                support_images, support_bboxes, support_cls = self.support_data_for_inference
+                dataset_dict['shots_per_class'] = self.shots_per_class
+
             dataset_dict['support_images'] = torch.as_tensor(support_images)
             dataset_dict['support_bboxes'] = torch.as_tensor(support_bboxes)
             dataset_dict['support_cls'] = torch.as_tensor(support_cls, dtype=torch.long)
@@ -217,10 +269,10 @@ class DatasetMapperWithSupport(DatasetMapper):
         support_cls = support_cls_list
 
         return support_images, support_bboxes, support_cls
-
-    def _sample_support(self, category_id, used_ids, used_image_ids):
+    
+    def _sample_support_metadata(self, category_id, used_ids, used_image_ids):
         """
-        Samples a support example for a given category ID.
+        Samples metadata for a support example for a given category ID.
 
         Args:
             category_id (int): The category ID to sample.
@@ -228,7 +280,7 @@ class DatasetMapperWithSupport(DatasetMapper):
             used_image_ids (list): List of image IDs to exclude.
 
         Returns:
-            Tuple of (image, bbox, class_id, support_id) or None if not found.
+            A dictionary with metadata of a support sample, or None if no sample is available.
         """
         df = self.support_df
         if self.support_exclude_query:
@@ -242,16 +294,56 @@ class DatasetMapperWithSupport(DatasetMapper):
                 (df['category_id'] == category_id) &
                 (~df['id'].isin(used_ids))
             ]
+
         if available_supports.empty:
             return None
 
-        support_sample = available_supports.sample(n=1).iloc[0]
-        support_id = support_sample['id']
-        support_cls = support_sample['category_id']
-        file_path = support_sample['file_path']
+        support_sample_metadata = available_supports.sample(n=1).iloc[0]
+        return support_sample_metadata
 
+
+    def _load_support_data(self, support_sample_metadata):
+        """
+        Loads support data (image, bbox, class_id) from metadata.
+
+        Args:
+            support_sample_metadata (pd.Series): Metadata of the support sample.
+
+        Returns:
+            Tuple of (image, bbox, class_id, support_id).
+        """
+        support_id = support_sample_metadata['id']
+        support_cls = support_sample_metadata['category_id']
+        file_path = support_sample_metadata['file_path']
+
+        # Construct the full file path to the support image
         file_path = os.path.join(self.data_dir, file_path)
+
+        # Read the support image and convert to tensor
         support_image = utils.read_image(file_path, format=self.image_format)
         support_image = torch.as_tensor(np.ascontiguousarray(support_image.transpose(2, 0, 1)))  # Convert to CxHxW
-        support_box = np.array(support_sample['support_box'], dtype=np.float32)
+
+        # Read the bounding box
+        support_box = np.array(support_sample_metadata['support_box'], dtype=np.float32)
+
         return support_image, support_box, support_cls, support_id
+    
+    def _sample_support(self, category_id, used_ids, used_image_ids):
+        """
+        Samples a support example for a given category ID.
+
+        Args:
+            category_id (int): The category ID to sample.
+            used_ids (set): Set of already used support IDs.
+            used_image_ids (list): List of image IDs to exclude.
+
+        Returns:
+            Tuple of (image, bbox, class_id, support_id) or None if not found.
+        """
+        # First, sample the metadata for the support example
+        support_sample_metadata = self._sample_support_metadata(category_id, used_ids, used_image_ids)
+        if support_sample_metadata is None:
+            return None
+
+        # Load the actual support data (image, bbox, etc.) using the metadata
+        return self._load_support_data(support_sample_metadata)

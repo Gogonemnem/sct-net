@@ -1,8 +1,3 @@
-"""
-Created on Wednesday, September 28, 2022
-
-@author: Guangxing Han
-"""
 from .pascal_voc_evaluation import PascalVOCDetectionEvaluator
 
 from .coco_style_evaluation import (

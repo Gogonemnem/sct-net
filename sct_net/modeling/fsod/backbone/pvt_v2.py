@@ -447,7 +447,7 @@ class PyramidVisionTransformerV2(_PyramidVisionTransformerV2, Backbone):
             "freeze_at": cfg.MODEL.BACKBONE.FREEZE_AT,
             "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED,
             "cross_attn": cfg.MODEL.BACKBONE.CROSS_ATTN,
-            "two_branch": cfg.INPUT.FS.ENABLED,
+            "two_branch": cfg.FEWSHOT.ENABLED,
         }
 
     def forward_single(self, x):

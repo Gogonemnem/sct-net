@@ -73,7 +73,7 @@ class PVT5BoxHead(nn.Module):
             "attn_drop_rate": cfg.MODEL.PVT.ATTN_DROP_RATE,
             "drop_path_rate": cfg.MODEL.PVT.DROP_PATH_RATE,
             "norm_layer": cfg.MODEL.PVT.NORM_LAYER,
-            "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED and cfg.INPUT.FS.ENABLED,
+            "branch_embed": cfg.MODEL.BACKBONE.BRANCH_EMBED and cfg.FEWSHOT.ENABLED,
             "cross_attn": cfg.MODEL.BACKBONE.CROSS_ATTN,
         }
 

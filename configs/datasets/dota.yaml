@@ -6,7 +6,7 @@ MODEL:
 DATASETS:
   TRAIN: ("dota_train2017_base_with_small",)
   TEST: ("dota_test2017",)
-  TEST_KEEPCLASSES: 'all'
+  TEST_ALL_CLASSES: True
 INPUT:
   MIN_SIZE_TRAIN: (640, 672, 704, 736, 768, 800)
   MAX_SIZE_TRAIN: 1333

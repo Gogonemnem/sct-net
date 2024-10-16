@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-"""
-Modified on Wednesday, September 28, 2022
-
-@author: Guangxing Han
-"""
-
 import os
 import tempfile
 from collections import OrderedDict, defaultdict

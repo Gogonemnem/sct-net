@@ -1,14 +1,10 @@
-"""
-Created on Wednesday, September 28, 2022
-
-@author: Guangxing Han
-"""
 import os
+
+from detectron2.data import MetadataCatalog
 
 from .register_coco import register_coco_instances
 from .builtin_meta_pascal_voc import _get_builtin_metadata_pascal_voc
 from .meta_pascal_voc import register_meta_pascal_voc
-from detectron2.data import MetadataCatalog
 
 CATEGORIES = {
     "pascal": [

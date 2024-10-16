@@ -1,14 +1,10 @@
-import os
 from collections import defaultdict
 
-import pandas as pd
 import numpy as np
 import torch
 
 from detectron2.config import configurable
 from detectron2.data.detection_utils import convert_image_to_rgb
-from detectron2.data.catalog import MetadataCatalog
-from detectron2.data import detection_utils as utils
 from detectron2.modeling.meta_arch import META_ARCH_REGISTRY, GeneralizedRCNN
 from detectron2.structures import ImageList, Boxes
 from detectron2.utils.events import get_event_storage
@@ -43,25 +39,14 @@ class FsodRCNN(GeneralizedRCNN):
         ret = super().from_config(cfg)
         ret.update(
             {
-                "support_way": cfg.INPUT.FS.SUPPORT_WAY,
-                "support_shot": cfg.INPUT.FS.SUPPORT_SHOT,
+                "support_way": cfg.FEWSHOT.SUPPORT_WAY,
+                "support_shot": cfg.FEWSHOT.SUPPORT_SHOT,
                 "data_dir": cfg.DATA_DIR,
                 "dataset": cfg.DATASETS.TRAIN[0],
             }
         )
         return ret
 
-    def init_support_features(self, evaluation_dataset, evaluation_shot, keepclasses, test_seeds):
-        self.evaluation_dataset = evaluation_dataset
-        self.evaluation_shot = evaluation_shot
-        self.keepclasses = keepclasses
-        self.test_seeds = test_seeds
-
-        if self.evaluation_dataset == 'voc':
-            self.init_model_voc()
-        elif self.evaluation_dataset == 'coco':
-            self.init_model_coco()
-    
     def visualize_training(self, batched_inputs, proposals_dict):
         """
         A function used to visualize images and proposals. It shows ground truth
@@ -97,14 +82,14 @@ class FsodRCNN(GeneralizedRCNN):
             probs = torch.sigmoid(prop.objectness_logits[0:box_size]).cpu().numpy()
             gt_classes = prop.gt_classes[0:box_size]
             labels = [f"{prob:.2f}, {cls}" for prob, cls in zip(probs, gt_classes)]
-        
+
             v_pred = v_pred.overlay_instances(
                 boxes=boxes,
                 labels=labels,
             )
             prop_img = v_pred.get_image()
             imgs.append(prop_img)
-        
+
         vis_img = np.concatenate(imgs, axis=1)
         vis_img = vis_img.transpose(2, 0, 1)
         vis_name = "Left: GT bounding boxes;  Right: Predicted proposals"
@@ -135,24 +120,16 @@ class FsodRCNN(GeneralizedRCNN):
         """
         if not self.training:
             return self.inference(batched_inputs)
-        
+
         images, support_images = self.preprocess_image(batched_inputs)
         if "instances" in batched_inputs[0]:
             for x in batched_inputs:
                 x['instances'].set('gt_classes', torch.full_like(x['instances'].get('gt_classes'), 0))
-            
+
             gt_instances = [x["instances"].to(self.device) for x in batched_inputs]
         else:
             gt_instances = None
 
-        # support branches
-        support_bboxes_ls = []
-        for item in batched_inputs:
-            bboxes = item['support_bboxes']
-            for box in bboxes:
-                box = Boxes(box[np.newaxis, :])
-                support_bboxes_ls.append(box.to(self.device))
-        
         B, N, C, H, W = support_images.tensor.shape
         assert N == self.support_way * self.support_shot
 
@@ -179,7 +156,7 @@ class FsodRCNN(GeneralizedRCNN):
 
                 support_boxes = batched_inputs[i]['support_bboxes'][way * self.support_shot:(way + 1) * self.support_shot]
                 support_boxes = [Boxes(box[np.newaxis, :]).to(self.device) for box in support_boxes]
-                
+
                 support_boxes_dict[way] = support_boxes
 
             proposals_dict, proposal_losses = self.proposal_generator(
@@ -202,106 +179,16 @@ class FsodRCNN(GeneralizedRCNN):
             if self.vis_period > 0 and i == 0:
                 storage = get_event_storage()
                 if storage.iter % self.vis_period == 0:
-                        self.visualize_training(batched_inputs, proposals_dict)
+                    self.visualize_training(batched_inputs, proposals_dict)
 
             for loss_type, value in detector_losses.items():
                 losses[loss_type] += value
 
             for loss_type, value in proposal_losses.items():
                 losses[loss_type] += value
-            
 
         losses = {loss_type: value / B for loss_type, value in losses.items()}
         return losses
-
-    def init_model_voc(self):
-        if 1:
-            if self.test_seeds == 0:
-                support_path = os.path.join(self.data_dir, 'pascal_voc/voc_2007_trainval_{}_{}shot.json'.format(self.keepclasses, self.evaluation_shot))
-            elif self.test_seeds >= 0:
-                support_path = os.path.join(self.data_dir, 'pascal_voc/seed{}/voc_2007_trainval_{}_{}shot.json'.format(self.test_seeds, self.keepclasses, self.evaluation_shot))
-
-            support_df = pd.read_json(support_path, orient='records', lines=True)
-
-            min_shot = self.evaluation_shot
-            max_shot = self.evaluation_shot
-            self.support_dict = {'image': {}, 'box': {}}
-            for cls in support_df['category_id'].unique():
-                support_cls_df = support_df.loc[support_df['category_id'] == cls, :].reset_index()
-                support_data_all = []
-                support_box_all = []
-
-                for index, support_img_df in support_cls_df.iterrows():
-                    img_path = os.path.join(self.data_dir, 'pascal_voc', support_img_df['file_path'])
-                    support_data = utils.read_image(img_path, format='BGR')
-                    support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
-                    support_data_all.append(support_data)
-
-                    support_box = support_img_df['support_box']
-                    support_box_all.append(Boxes([support_box]).to(self.device))
-
-                min_shot = min(min_shot, len(support_box_all))
-                max_shot = max(max_shot, len(support_box_all))
-                # support images
-                support_images = [x.to(self.device) for x in support_data_all]
-                support_images = [(x - self.pixel_mean) / self.pixel_std for x in support_images]
-                support_images = ImageList.from_tensors(support_images, self.backbone.size_divisibility)
-                self.support_dict['image'][cls] = support_images
-                self.support_dict['box'][cls] = support_box_all
-
-            print("min_shot={}, max_shot={}".format(min_shot, max_shot))
-
-
-    def init_model_coco(self):
-        if 1:
-            if self.keepclasses == 'all':
-                if self.test_seeds == 0:
-                    support_path = os.path.join(self.data_dir, 'full_class_{}_shot_support_df.json'.format(self.evaluation_shot))##(self.data_dir, 'coco/full_class_{}_shot_support_df.json'.format(self.evaluation_shot))
-                elif self.test_seeds > 0:
-                    support_path = os.path.join(self.data_dir, 'seed{}/full_class_{}_shot_support_df.json'.format(self.test_seeds, self.evaluation_shot))
-            else:
-                if self.test_seeds == 0:
-                    support_path = os.path.join(self.data_dir, '{}_shot_support_df.json'.format(self.evaluation_shot))
-                elif self.test_seeds > 0:
-                    support_path = os.path.join(self.data_dir, 'seed{}/{}_shot_support_df.json'.format(self.test_seeds, self.evaluation_shot))
-
-            support_df = pd.read_json(support_path, orient='records', lines=True)
-            if 'coco' in self.dataset:
-                metadata = MetadataCatalog.get('coco_2014_train')
-            else:
-                metadata = MetadataCatalog.get(self.dataset)##MetadataCatalog.get('coco_2014_train')  ##HACK
-            # unmap the category mapping ids for COCO
-            reverse_id_mapper = lambda dataset_id: metadata.thing_dataset_id_to_contiguous_id[dataset_id]  # noqa
-            support_df['category_id'] = support_df['category_id'].map(reverse_id_mapper)
-
-            min_shot = self.evaluation_shot
-            max_shot = self.evaluation_shot
-            self.support_dict = {'image': {}, 'box': {}}
-            for cls in support_df['category_id'].unique():
-                support_cls_df = support_df.loc[support_df['category_id'] == cls, :].reset_index()
-                support_data_all = []
-                support_box_all = []
-
-                for index, support_img_df in support_cls_df.iterrows():
-                    img_path = os.path.join(self.data_dir, support_img_df['file_path'])
-                    support_data = utils.read_image(img_path, format='BGR')
-                    support_data = torch.as_tensor(np.ascontiguousarray(support_data.transpose(2, 0, 1)))
-                    support_data_all.append(support_data)
-
-                    support_box = support_img_df['support_box']
-                    support_box_all.append(Boxes([support_box]).to(self.device))
-
-                min_shot = min(min_shot, len(support_box_all))
-                max_shot = max(max_shot, len(support_box_all))
-                # support images
-                support_images = [x.to(self.device) for x in support_data_all]
-                support_images = [(x - self.pixel_mean) / self.pixel_std for x in support_images]
-                support_images = ImageList.from_tensors(support_images, self.backbone.size_divisibility)
-                self.support_dict['image'][cls] = support_images
-                self.support_dict['box'][cls] = support_box_all
-
-            print("min_shot={}, max_shot={}".format(min_shot, max_shot))
-
 
     def inference(self, batched_inputs, detected_instances=None, do_postprocess=True):
         """
@@ -319,8 +206,8 @@ class FsodRCNN(GeneralizedRCNN):
             same as in :meth:`forward`.
         """
         assert not self.training
-        
-        images = self.preprocess_image(batched_inputs)
+
+        images, support_images = self.preprocess_image(batched_inputs)
 
         B, C, H, W = images.tensor.shape
         assert B == 1 # only support 1 query image in test
@@ -329,17 +216,41 @@ class FsodRCNN(GeneralizedRCNN):
         # TODO: make possible for arbitrary batch
         # for i in range(B):
         i = 0
+        batch_item = batched_inputs[i]
         query_images = ImageList.from_tensors([images[i]]) # one query image
+        support_images = support_images[i] # one support image
+
+        # Get support images and shots per class from batched inputs
+        shots_per_class = batch_item["shots_per_class"]
 
         query_features_dict = {}
         support_features_dict = {}
         support_boxes_dict = {}
 
-        for cls_id, support_images in self.support_dict['image'].items():
-            query_features, support_features = self.backbone(query_images.tensor, support_images.tensor)
+        # Initialize an offset to track where the data for each class starts
+        current_offset = 0
+
+        # Iterate over each class and use smart slicing to get support data
+        for cls_id, num_shots in shots_per_class.items():
+            # Calculate the start and end indices for slicing
+            start_idx = current_offset
+            end_idx = current_offset + num_shots
+
+            # Slice the support images and bounding boxes for the given class
+            support_images_cls = support_images[start_idx:end_idx]
+
+            query_features, support_features = self.backbone(query_images.tensor, support_images_cls)
             query_features_dict[cls_id] = {key: query_features[key] for key in query_features.keys()}
             support_features_dict[cls_id] = {key: support_features[key] for key in support_features.keys()}
-            support_boxes_dict[cls_id] = self.support_dict['box'][cls_id]
+
+            support_boxes = batch_item["support_bboxes"][start_idx:end_idx]
+            support_boxes = [Boxes(box[np.newaxis, :]).to(self.device) for box in support_boxes]
+
+            support_boxes_dict[cls_id] = support_boxes
+
+            # Update the current offset for the next class
+            current_offset = end_idx
+
 
         proposals_dict, _ = self.proposal_generator(
             query_images,
@@ -356,7 +267,7 @@ class FsodRCNN(GeneralizedRCNN):
             support_boxes_dict,
             proposals_dict
         )
-        
+
         if do_postprocess:
             return FsodRCNN._postprocess(results, batched_inputs, images.image_sizes)
         else:
@@ -366,14 +277,13 @@ class FsodRCNN(GeneralizedRCNN):
         """
         Normalize, pad and batch the input images.
         """
-        images = [x["image"].to(self.device) for x in batched_inputs]
-        images = [(x - self.pixel_mean) / self.pixel_std for x in images]
-        images = ImageList.from_tensors(images, self.backbone.size_divisibility)
-        if not self.training:
-            return images
+        query_images = super().preprocess_image(batched_inputs)
 
-        support_images = [x['support_images'].to(self.device) for x in batched_inputs]
+        support_images = [self._move_to_current_device(x["image"]) for x in batched_inputs]
         support_images = [(x - self.pixel_mean) / self.pixel_std for x in support_images]
-        support_images = ImageList.from_tensors(support_images, self.backbone.size_divisibility)
-
-        return images, support_images
+        support_images = ImageList.from_tensors(
+            support_images,
+            self.backbone.size_divisibility,
+            padding_constraints=self.backbone.padding_constraints,
+        )
+        return query_images, support_images

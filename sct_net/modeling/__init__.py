@@ -1,8 +1,3 @@
-"""
-Created on Wednesday, September 28, 2022
-
-@author: Guangxing Han
-"""
 from .fsod import FsodRCNN, FsodStandardROIHeads, FsodFastRCNNOutputLayers, FsodRPN
 
 _EXCLUDE = {"torch", "ShapeSpec"}
