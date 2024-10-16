@@ -279,7 +279,7 @@ class FsodRCNN(GeneralizedRCNN):
         """
         query_images = super().preprocess_image(batched_inputs)
 
-        support_images = [self._move_to_current_device(x["image"]) for x in batched_inputs]
+        support_images = [self._move_to_current_device(x["support_images"]) for x in batched_inputs]
         support_images = [(x - self.pixel_mean) / self.pixel_std for x in support_images]
         support_images = ImageList.from_tensors(
             support_images,
